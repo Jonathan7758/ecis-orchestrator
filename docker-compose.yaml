@@ -1,0 +1,60 @@
+version: "3.8"
+
+services:
+  # Temporal Server
+  temporal:
+    image: temporalio/auto-setup:1.22.4
+    container_name: ecis-temporal
+    ports:
+      - "7233:7233"
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=config/dynamicconfig/development.yaml
+    depends_on:
+      - postgresql
+    volumes:
+      - ./temporal-config:/etc/temporal/config/dynamicconfig
+
+  # Temporal Web UI
+  temporal-ui:
+    image: temporalio/ui:2.22.1
+    container_name: ecis-temporal-ui
+    ports:
+      - "8233:8080"
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
+    depends_on:
+      - temporal
+
+  # PostgreSQL for Temporal
+  postgresql:
+    image: postgres:15-alpine
+    container_name: ecis-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_DB=temporal
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: ecis-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:

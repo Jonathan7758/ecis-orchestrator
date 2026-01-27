@@ -1,0 +1,13 @@
+# Temporal Dynamic Configuration for Development
+frontend.enableClientVersionCheck:
+  - value: true
+    constraints: {}
+history.persistenceMaxQPS:
+  - value: 3000
+    constraints: {}
+matching.numTaskqueueReadPartitions:
+  - value: 4
+    constraints: {}
+matching.numTaskqueueWritePartitions:
+  - value: 4
+    constraints: {}

@@ -10,7 +10,7 @@
 |------|-----|
 | **当前阶段** | Task 7 - 编排器后端 |
 | **当前模块** | Week 1 基础设施 ✅ |
-| **进度** | 80% (core, activities, workflows, workers, api, services, federation, models 完成) |
+| **进度** | 95% (所有核心模块完成) |
 | **阻塞问题** | 无 |
 | **最后更新** | 2026-01-27 |
 
@@ -22,26 +22,26 @@
   - pyproject.toml 依赖配置
   - docker-compose.yaml (Temporal, PostgreSQL, Redis)
   - core 模块 (config, exceptions, database)
-  - activities 模块 (robot, facility, notification, llm) - 21个Activity
-  - workflows 模块 (cleaning, approval) - 3个Workflow
+  - activities 模块 (robot, facility, notification, llm) - 23个Activity
+  - workflows 模块 (cleaning, approval, delivery, scheduled) - 6个Workflow
   - workers 模块 (main_worker)
-  - api 模块 (routes/workflows, routes/approvals)
+  - api 模块 (routes/workflows, approvals, delivery, tasks)
   - services 模块 (workflow_service, task_dispatcher)
   - federation 模块 (federation_client)
   - models 模块 (workflow, agent)
   - Docker 环境启动成功 (Temporal, PostgreSQL, Redis)
   - 52 个单元测试全部通过
-  - 2 个端到端测试全部通过 (cleaning, approval workflows)
+  - 2 个端到端测试通过 (需要Docker环境运行)
 
 Git 提交:
   - 7a122f4 feat(orchestrator): initial project setup with Temporal workflows
   - 917939a feat(orchestrator): add e2e tests and fix port conflicts
-  - 24405d8 feat(orchestrator): add services, federation, and models modules
+  - 13e629f feat(orchestrator): add services, federation, and models modules
+  - 14576c7 feat(orchestrator): add delivery and scheduled workflows with API routes
 
 待完成:
-  - 更多工作流 (delivery, scheduled)
-  - 完善 API 端点
-  - 集成测试
+  - 集成测试完善
+  - 部署文档
 ```
 
 ---
@@ -75,16 +75,58 @@ Git 提交:
 | 模块 | 状态 | 说明 |
 |------|------|------|
 | core/ | ✅ 已完成 | 配置、数据库、异常 |
-| activities/ | ✅ 已完成 | robot, facility, notification, llm (21个) |
-| workflows/ | ✅ 已完成 | cleaning, approval (3个) |
+| activities/ | ✅ 已完成 | robot(6), facility(7), notification(6), llm(4) = 23个 |
+| workflows/ | ✅ 已完成 | cleaning, approval, delivery, scheduled = 6个 |
 | workers/ | ✅ 已完成 | main_worker |
-| api/ | ✅ 已完成 | routes/workflows, routes/approvals |
+| api/ | ✅ 已完成 | routes/workflows, approvals, delivery, tasks |
 | services/ | ✅ 已完成 | workflow_service, task_dispatcher |
 | federation/ | ✅ 已完成 | federation_client |
 | models/ | ✅ 已完成 | workflow, agent |
 | tests/ | ✅ 已完成 | 52单元测试 + 2端到端测试 |
 
 状态图例：⬜ 待开发 | 🔄 开发中 | ✅ 已完成 | ⚠️ 需修复
+
+---
+
+## 工作流列表
+
+| 工作流 | 说明 | 信号 |
+|--------|------|------|
+| RobotCleaningWorkflow | 机器人清洁任务 | - |
+| ApprovalWorkflow | 单级审批 | approve, reject, cancel |
+| MultiStageApprovalWorkflow | 多级审批 | approve, reject |
+| DeliveryWorkflow | 物品配送 | confirm_pickup, confirm_delivery, cancel_delivery |
+| ScheduledCleaningWorkflow | 定时清洁 | cancel_schedule, skip_location |
+| ScheduledPatrolWorkflow | 定时巡检 | cancel_patrol, report_anomaly |
+
+---
+
+## API 端点
+
+### Workflows
+- POST /api/v1/workflows/cleaning - 启动清洁工作流
+- GET /api/v1/workflows/{id} - 获取工作流状态
+- POST /api/v1/workflows/{id}/cancel - 取消工作流
+
+### Approvals
+- POST /api/v1/approvals - 创建审批
+- GET /api/v1/approvals/{id} - 获取审批状态
+- POST /api/v1/approvals/{id}/approve - 批准
+- POST /api/v1/approvals/{id}/reject - 拒绝
+
+### Delivery
+- POST /api/v1/delivery - 启动配送
+- GET /api/v1/delivery/{id} - 获取配送状态
+- POST /api/v1/delivery/{id}/confirm-pickup - 确认取货
+- POST /api/v1/delivery/{id}/confirm-delivery - 确认送达
+- POST /api/v1/delivery/{id}/cancel - 取消配送
+
+### Tasks
+- GET /api/v1/tasks/agents - 列出所有Agent
+- POST /api/v1/tasks/agents - 注册Agent
+- POST /api/v1/tasks/dispatch - 分派任务
+- GET /api/v1/tasks/{id} - 获取任务状态
+- GET /api/v1/tasks/stats/overview - 统计信息
 
 ---
 
@@ -105,7 +147,7 @@ python -m src.workers.main_worker
 uvicorn src.api.main:app --reload --port 8200
 
 # 运行单元测试
-pytest tests/test_core.py tests/test_activities_unit.py tests/test_services.py tests/test_models.py tests/test_federation.py -v
+pytest tests/ -v --ignore=tests/test_e2e.py
 
 # 运行端到端测试（需要先启动Worker）
 python tests/test_e2e.py
@@ -134,14 +176,16 @@ ecis-orchestrator/
 │   │   └── exceptions.py     ✅
 │   ├── activities/
 │   │   ├── __init__.py
-│   │   ├── robot.py          ✅ (5 activities)
+│   │   ├── robot.py          ✅ (6 activities)
 │   │   ├── facility.py       ✅ (7 activities)
-│   │   ├── notification.py   ✅ (5 activities)
+│   │   ├── notification.py   ✅ (6 activities)
 │   │   └── llm.py            ✅ (4 activities)
 │   ├── workflows/
 │   │   ├── __init__.py
 │   │   ├── cleaning.py       ✅ (RobotCleaningWorkflow)
-│   │   └── approval.py       ✅ (ApprovalWorkflow, MultiStageApprovalWorkflow)
+│   │   ├── approval.py       ✅ (ApprovalWorkflow, MultiStageApprovalWorkflow)
+│   │   ├── delivery.py       ✅ (DeliveryWorkflow)
+│   │   └── scheduled.py      ✅ (ScheduledCleaningWorkflow, ScheduledPatrolWorkflow)
 │   ├── workers/
 │   │   ├── __init__.py
 │   │   └── main_worker.py    ✅
@@ -151,7 +195,9 @@ ecis-orchestrator/
 │   │   └── routes/
 │   │       ├── __init__.py
 │   │       ├── workflows.py  ✅
-│   │       └── approvals.py  ✅
+│   │       ├── approvals.py  ✅
+│   │       ├── delivery.py   ✅
+│   │       └── tasks.py      ✅
 │   ├── services/
 │   │   ├── __init__.py       ✅
 │   │   ├── workflow_service.py ✅
@@ -173,12 +219,3 @@ ecis-orchestrator/
     ├── test_federation.py    ✅ (7 tests)
     └── test_e2e.py           ✅ (2 e2e tests)
 ```
-
----
-
-## 下一步
-
-1. 添加更多工作流 (delivery, scheduled)
-2. 完善 API 端点 (tasks, agents)
-3. 添加集成测试
-4. 部署文档

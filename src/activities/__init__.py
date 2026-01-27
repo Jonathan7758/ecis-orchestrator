@@ -25,6 +25,7 @@ from .notification import (
     get_approval_status,
     send_approval_reminder,
     send_notification,
+    send_task_update,
 )
 from .robot import (
     RobotTaskParams,
@@ -32,6 +33,7 @@ from .robot import (
     find_available_robot,
     get_robot_location,
     get_robot_status,
+    release_robot,
     wait_for_robot_task_completion,
 )
 
@@ -43,6 +45,7 @@ __all__ = [
     "wait_for_robot_task_completion",
     "get_robot_location",
     "find_available_robot",
+    "release_robot",
     # Facility
     "call_elevator",
     "open_door",
@@ -53,6 +56,7 @@ __all__ = [
     "get_floor_status",
     # Notification
     "send_notification",
+    "send_task_update",
     "create_approval_request",
     "get_approval_status",
     "send_approval_reminder",

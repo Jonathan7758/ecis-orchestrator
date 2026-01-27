@@ -186,3 +186,34 @@ async def cancel_approval_request(
         "approval_id": approval_id,
         "cancelled": True,
     }
+
+
+@activity.defn
+async def send_task_update(
+    recipient_id: str,
+    message: str,
+    task_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    发送任务更新通知
+
+    参数:
+        recipient_id: 接收者 ID
+        message: 更新消息
+        task_id: 任务 ID
+
+    返回:
+        发送结果
+    """
+    activity.logger.info(f"Sending task update to {recipient_id}: {message}")
+
+    # 模拟发送延迟
+    await asyncio.sleep(0.2)
+
+    return {
+        "success": True,
+        "recipient_id": recipient_id,
+        "message": message,
+        "task_id": task_id,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+    }

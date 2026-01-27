@@ -17,6 +17,8 @@ from src.core.config import get_config
 # 导入所有工作流
 from src.workflows.cleaning import RobotCleaningWorkflow
 from src.workflows.approval import ApprovalWorkflow, MultiStageApprovalWorkflow
+from src.workflows.delivery import DeliveryWorkflow
+from src.workflows.scheduled import ScheduledCleaningWorkflow, ScheduledPatrolWorkflow
 
 # 导入所有 Activity
 from src.activities.robot import (
@@ -25,6 +27,7 @@ from src.activities.robot import (
     wait_for_robot_task_completion,
     get_robot_location,
     find_available_robot,
+    release_robot,
 )
 from src.activities.facility import (
     call_elevator,
@@ -37,6 +40,7 @@ from src.activities.facility import (
 )
 from src.activities.notification import (
     send_notification,
+    send_task_update,
     create_approval_request,
     get_approval_status,
     send_approval_reminder,
@@ -62,6 +66,9 @@ WORKFLOWS = [
     RobotCleaningWorkflow,
     ApprovalWorkflow,
     MultiStageApprovalWorkflow,
+    DeliveryWorkflow,
+    ScheduledCleaningWorkflow,
+    ScheduledPatrolWorkflow,
 ]
 
 # 所有 Activity 函数
@@ -72,6 +79,7 @@ ACTIVITIES = [
     wait_for_robot_task_completion,
     get_robot_location,
     find_available_robot,
+    release_robot,
     # Facility
     call_elevator,
     open_door,
@@ -82,6 +90,7 @@ ACTIVITIES = [
     get_floor_status,
     # Notification
     send_notification,
+    send_task_update,
     create_approval_request,
     get_approval_status,
     send_approval_reminder,

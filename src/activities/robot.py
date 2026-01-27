@@ -186,3 +186,26 @@ async def find_available_robot(
         "battery_level": 85,
         "status": "ready",
     }
+
+
+@activity.defn
+async def release_robot(robot_id: str) -> Dict[str, Any]:
+    """
+    释放机器人
+
+    参数:
+        robot_id: 机器人 ID
+
+    返回:
+        释放结果
+    """
+    activity.logger.info(f"Releasing robot: {robot_id}")
+
+    # 模拟释放延迟
+    await asyncio.sleep(0.5)
+
+    return {
+        "robot_id": robot_id,
+        "status": "released",
+        "released_at": datetime.now(timezone.utc).isoformat(),
+    }

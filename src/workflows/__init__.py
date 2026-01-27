@@ -15,6 +15,17 @@ from .cleaning import (
     CleaningWorkflowResult,
     RobotCleaningWorkflow,
 )
+from .delivery import (
+    DeliveryWorkflow,
+    DeliveryWorkflowInput,
+    DeliveryWorkflowResult,
+)
+from .scheduled import (
+    ScheduledCleaningWorkflow,
+    ScheduledPatrolWorkflow,
+    ScheduledTaskInput,
+    ScheduledTaskResult,
+)
 
 __all__ = [
     # Cleaning
@@ -26,4 +37,13 @@ __all__ = [
     "ApprovalWorkflowInput",
     "ApprovalWorkflowResult",
     "MultiStageApprovalWorkflow",
+    # Delivery
+    "DeliveryWorkflow",
+    "DeliveryWorkflowInput",
+    "DeliveryWorkflowResult",
+    # Scheduled
+    "ScheduledCleaningWorkflow",
+    "ScheduledPatrolWorkflow",
+    "ScheduledTaskInput",
+    "ScheduledTaskResult",
 ]

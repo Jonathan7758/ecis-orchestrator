@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   # Temporal Server
   temporal:
@@ -31,12 +29,12 @@ services:
     depends_on:
       - temporal
 
-  # PostgreSQL for Temporal
+  # PostgreSQL for Temporal (using port 5434 to avoid conflict)
   postgresql:
     image: postgres:15-alpine
     container_name: ecis-postgres
     ports:
-      - "5432:5432"
+      - "5434:5432"
     environment:
       - POSTGRES_USER=temporal
       - POSTGRES_PASSWORD=temporal
@@ -45,12 +43,12 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
 
-  # Redis
+  # Redis (using port 6380 to avoid conflict)
   redis:
     image: redis:7-alpine
     container_name: ecis-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data

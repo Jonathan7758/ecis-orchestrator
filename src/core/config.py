@@ -33,7 +33,7 @@ class DatabaseConfig(BaseSettings):
 
     model_config = ConfigDict(env_prefix="DATABASE_")
 
-    url: str = "postgresql+asyncpg://temporal:temporal@localhost:5432/orchestrator"
+    url: str = "postgresql+asyncpg://temporal:temporal@localhost:5434/orchestrator"
     pool_size: int = 10
     max_overflow: int = 20
 
@@ -43,7 +43,7 @@ class RedisConfig(BaseSettings):
 
     model_config = ConfigDict(env_prefix="REDIS_")
 
-    url: str = "redis://localhost:6379"
+    url: str = "redis://localhost:6380"
 
 
 class FederationConfig(BaseSettings):

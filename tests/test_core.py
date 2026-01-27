@@ -44,7 +44,7 @@ class TestConfig:
     def test_redis_config_defaults(self):
         """测试 Redis 默认配置"""
         config = get_config()
-        assert config.redis.url == "redis://localhost:6379"
+        assert config.redis.url == "redis://localhost:6380"
 
     def test_app_config_defaults(self):
         """测试应用默认配置"""

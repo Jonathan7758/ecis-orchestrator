@@ -1,0 +1,183 @@
+{
+  "$schema": "https://ecis.linkc.ai/schemas/workflow-template.schema.json",
+  "template_id": "robot-cleaning-workflow",
+  "name": "机器人清洁工作流",
+  "version": "1.0.0",
+  "category": "cleaning",
+  "description": "机器人自动清洁指定区域的完整工作流，包括状态检查、跨楼层移动、设施联动",
+  "priority": "P0",
+  "estimated_duration": "30-120 minutes",
+  "involved_systems": ["ecis-service-robot", "ecis-property-facility"],
+
+  "variables": [
+    {
+      "name": "robot_id",
+      "type": "string",
+      "required": true,
+      "label": "机器人ID",
+      "description": "执行清洁任务的机器人"
+    },
+    {
+      "name": "target_floor",
+      "type": "number",
+      "required": true,
+      "label": "目标楼层"
+    },
+    {
+      "name": "area_id",
+      "type": "string",
+      "required": true,
+      "label": "清洁区域ID"
+    },
+    {
+      "name": "cleaning_type",
+      "type": "string",
+      "required": false,
+      "default": "standard",
+      "label": "清洁类型",
+      "enum": ["quick", "standard", "deep"]
+    },
+    {
+      "name": "notify_on_complete",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "label": "完成时通知"
+    }
+  ],
+
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 250, "y": 0 }
+    },
+    {
+      "id": "check-robot",
+      "type": "task",
+      "name": "检查机器人状态",
+      "position": { "x": 250, "y": 100 },
+      "config": {
+        "capability": "robot.status.get",
+        "parameters": {
+          "robot_id": "{{ robot_id }}"
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "id": "check-battery",
+      "type": "decision",
+      "name": "电量检查",
+      "position": { "x": 250, "y": 200 },
+      "config": {
+        "condition": "{{ steps['check-robot'].result.battery_level > 20 }}"
+      }
+    },
+    {
+      "id": "go-charge",
+      "type": "task",
+      "name": "去充电",
+      "position": { "x": 450, "y": 200 },
+      "config": {
+        "capability": "robot.navigation.charge",
+        "parameters": {
+          "robot_id": "{{ robot_id }}"
+        }
+      }
+    },
+    {
+      "id": "check-floor",
+      "type": "decision",
+      "name": "同楼层检查",
+      "position": { "x": 250, "y": 300 },
+      "config": {
+        "condition": "{{ steps['check-robot'].result.current_floor == target_floor }}"
+      }
+    },
+    {
+      "id": "call-elevator",
+      "type": "task",
+      "name": "叫电梯",
+      "position": { "x": 100, "y": 400 },
+      "config": {
+        "capability": "facility.elevator.call",
+        "parameters": {
+          "from_floor": "{{ steps['check-robot'].result.current_floor }}",
+          "to_floor": "{{ target_floor }}",
+          "robot_id": "{{ robot_id }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "open-doors",
+      "type": "task",
+      "name": "开门禁",
+      "position": { "x": 250, "y": 500 },
+      "config": {
+        "capability": "facility.access.route",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "destination": "{{ area_id }}"
+        }
+      }
+    },
+    {
+      "id": "do-cleaning",
+      "type": "task",
+      "name": "执行清洁",
+      "position": { "x": 250, "y": 600 },
+      "config": {
+        "capability": "cleaning.floor.{{ cleaning_type }}",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "area_id": "{{ area_id }}"
+        },
+        "timeout": 7200,
+        "retry": {
+          "max_attempts": 2,
+          "initial_interval": 60
+        }
+      }
+    },
+    {
+      "id": "notify",
+      "type": "notification",
+      "name": "发送通知",
+      "position": { "x": 250, "y": 700 },
+      "config": {
+        "channel": "ops",
+        "message": "区域 {{ area_id }} 清洁完成",
+        "condition": "{{ notify_on_complete }}"
+      }
+    },
+    {
+      "id": "end-success",
+      "type": "end",
+      "name": "完成",
+      "position": { "x": 250, "y": 800 }
+    },
+    {
+      "id": "end-fail",
+      "type": "end",
+      "name": "失败",
+      "position": { "x": 450, "y": 300 }
+    }
+  ],
+
+  "edges": [
+    { "id": "e1", "source": "start", "target": "check-robot" },
+    { "id": "e2", "source": "check-robot", "target": "check-battery" },
+    { "id": "e3", "source": "check-battery", "target": "check-floor", "label": "是" },
+    { "id": "e4", "source": "check-battery", "target": "go-charge", "label": "否" },
+    { "id": "e5", "source": "go-charge", "target": "end-fail" },
+    { "id": "e6", "source": "check-floor", "target": "open-doors", "label": "是" },
+    { "id": "e7", "source": "check-floor", "target": "call-elevator", "label": "否" },
+    { "id": "e8", "source": "call-elevator", "target": "open-doors" },
+    { "id": "e9", "source": "open-doors", "target": "do-cleaning" },
+    { "id": "e10", "source": "do-cleaning", "target": "notify" },
+    { "id": "e11", "source": "notify", "target": "end-success" }
+  ]
+}

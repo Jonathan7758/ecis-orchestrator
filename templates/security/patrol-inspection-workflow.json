@@ -1,0 +1,253 @@
+{
+  "$schema": "https://ecis.linkc.ai/schemas/workflow-template.schema.json",
+  "template_id": "patrol-inspection-workflow",
+  "name": "巡逻检查工作流",
+  "version": "1.0.0",
+  "category": "security",
+  "description": "机器人/无人机/机器狗自动巡逻检查的完整工作流，支持多检查点、异常检测、告警通知",
+  "priority": "P2",
+  "estimated_duration": "30-60 minutes",
+  "involved_systems": ["ecis-service-robot", "ecis-property-facility"],
+  "trigger_condition": "定时 / 告警触发 / 手动触发",
+
+  "variables": [
+    {
+      "name": "robot_id",
+      "type": "string",
+      "required": true,
+      "label": "巡逻设备ID"
+    },
+    {
+      "name": "robot_type",
+      "type": "string",
+      "required": false,
+      "default": "patrol_robot",
+      "label": "设备类型",
+      "enum": ["patrol_robot", "drone", "robot_dog"]
+    },
+    {
+      "name": "route_id",
+      "type": "string",
+      "required": true,
+      "label": "巡逻路线ID"
+    },
+    {
+      "name": "checkpoints",
+      "type": "array",
+      "required": false,
+      "label": "检查点列表"
+    },
+    {
+      "name": "inspection_items",
+      "type": "array",
+      "required": false,
+      "default": ["fire_hazard", "water_leak", "door_status", "lighting"],
+      "label": "检查项目"
+    },
+    {
+      "name": "alert_on_anomaly",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "label": "异常告警"
+    },
+    {
+      "name": "generate_report",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "label": "生成报告"
+    },
+    {
+      "name": "photo_on_anomaly",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "label": "异常拍照"
+    }
+  ],
+
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 250, "y": 0 }
+    },
+    {
+      "id": "load-route",
+      "type": "task",
+      "name": "加载巡逻路线",
+      "position": { "x": 250, "y": 80 },
+      "config": {
+        "capability": "patrol.route.load",
+        "parameters": {
+          "route_id": "{{ route_id }}",
+          "checkpoints": "{{ checkpoints }}"
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "id": "goto-start-point",
+      "type": "task",
+      "name": "前往起点",
+      "position": { "x": 250, "y": 160 },
+      "config": {
+        "capability": "robot.navigation.goto",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "destination": "{{ steps['load-route'].result.start_point }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "patrol-loop",
+      "type": "subprocess",
+      "name": "巡检循环",
+      "position": { "x": 250, "y": 240 },
+      "config": {
+        "loop": true,
+        "loop_variable": "checkpoint",
+        "loop_source": "{{ steps['load-route'].result.checkpoints }}"
+      }
+    },
+    {
+      "id": "goto-checkpoint",
+      "type": "task",
+      "name": "前往检查点",
+      "position": { "x": 250, "y": 320 },
+      "config": {
+        "capability": "robot.navigation.goto",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "destination": "{{ checkpoint.location }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "do-inspection",
+      "type": "task",
+      "name": "执行巡检",
+      "position": { "x": 250, "y": 400 },
+      "config": {
+        "capability": "patrol.inspect",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "checkpoint_id": "{{ checkpoint.id }}",
+          "items": "{{ inspection_items }}"
+        },
+        "timeout": 120
+      }
+    },
+    {
+      "id": "check-anomaly",
+      "type": "decision",
+      "name": "发现异常?",
+      "position": { "x": 250, "y": 480 },
+      "config": {
+        "condition": "{{ steps['do-inspection'].result.has_anomaly }}"
+      }
+    },
+    {
+      "id": "record-anomaly",
+      "type": "task",
+      "name": "记录异常",
+      "position": { "x": 100, "y": 560 },
+      "config": {
+        "capability": "patrol.anomaly.record",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "checkpoint_id": "{{ checkpoint.id }}",
+          "anomaly_data": "{{ steps['do-inspection'].result.anomaly }}"
+        }
+      }
+    },
+    {
+      "id": "take-photo",
+      "type": "task",
+      "name": "拍照取证",
+      "position": { "x": 100, "y": 640 },
+      "config": {
+        "capability": "robot.camera.capture",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "mode": "evidence"
+        },
+        "condition": "{{ photo_on_anomaly }}"
+      }
+    },
+    {
+      "id": "check-severity",
+      "type": "decision",
+      "name": "紧急情况?",
+      "position": { "x": 100, "y": 720 },
+      "config": {
+        "condition": "{{ steps['do-inspection'].result.anomaly.severity == 'critical' }}"
+      }
+    },
+    {
+      "id": "send-alert",
+      "type": "notification",
+      "name": "立即告警",
+      "position": { "x": -50, "y": 800 },
+      "config": {
+        "channel": "emergency",
+        "message": "紧急：{{ checkpoint.name }} 发现 {{ steps['do-inspection'].result.anomaly.type }}",
+        "priority": "critical",
+        "condition": "{{ alert_on_anomaly }}"
+      }
+    },
+    {
+      "id": "check-complete",
+      "type": "decision",
+      "name": "巡逻完成?",
+      "position": { "x": 250, "y": 800 },
+      "config": {
+        "condition": "{{ loop.is_last }}"
+      }
+    },
+    {
+      "id": "generate-report",
+      "type": "task",
+      "name": "生成巡检报告",
+      "position": { "x": 250, "y": 880 },
+      "config": {
+        "capability": "patrol.report.generate",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "route_id": "{{ route_id }}",
+          "include_photos": true
+        },
+        "condition": "{{ generate_report }}"
+      }
+    },
+    {
+      "id": "end-success",
+      "type": "end",
+      "name": "巡逻完成",
+      "position": { "x": 250, "y": 960 }
+    }
+  ],
+
+  "edges": [
+    { "id": "e1", "source": "start", "target": "load-route" },
+    { "id": "e2", "source": "load-route", "target": "goto-start-point" },
+    { "id": "e3", "source": "goto-start-point", "target": "patrol-loop" },
+    { "id": "e4", "source": "patrol-loop", "target": "goto-checkpoint" },
+    { "id": "e5", "source": "goto-checkpoint", "target": "do-inspection" },
+    { "id": "e6", "source": "do-inspection", "target": "check-anomaly" },
+    { "id": "e7", "source": "check-anomaly", "target": "check-complete", "label": "否" },
+    { "id": "e8", "source": "check-anomaly", "target": "record-anomaly", "label": "是" },
+    { "id": "e9", "source": "record-anomaly", "target": "take-photo" },
+    { "id": "e10", "source": "take-photo", "target": "check-severity" },
+    { "id": "e11", "source": "check-severity", "target": "check-complete", "label": "否" },
+    { "id": "e12", "source": "check-severity", "target": "send-alert", "label": "是" },
+    { "id": "e13", "source": "send-alert", "target": "check-complete" },
+    { "id": "e14", "source": "check-complete", "target": "patrol-loop", "label": "否" },
+    { "id": "e15", "source": "check-complete", "target": "generate-report", "label": "是" },
+    { "id": "e16", "source": "generate-report", "target": "end-success" }
+  ]
+}

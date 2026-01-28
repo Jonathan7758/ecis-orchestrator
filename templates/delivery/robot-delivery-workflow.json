@@ -1,0 +1,233 @@
+{
+  "$schema": "https://ecis.linkc.ai/schemas/workflow-template.schema.json",
+  "template_id": "robot-delivery-workflow",
+  "name": "机器人配送工作流",
+  "version": "1.0.0",
+  "category": "delivery",
+  "description": "机器人自动配送物品的完整工作流，包括取件、跨楼层配送、收件人通知",
+  "priority": "P1",
+  "estimated_duration": "5-30 minutes",
+  "involved_systems": ["ecis-service-robot", "ecis-property-facility", "ecis-human-agent"],
+
+  "variables": [
+    {
+      "name": "robot_id",
+      "type": "string",
+      "required": true,
+      "label": "配送机器人ID"
+    },
+    {
+      "name": "pickup_location",
+      "type": "string",
+      "required": true,
+      "label": "取件位置"
+    },
+    {
+      "name": "delivery_location",
+      "type": "string",
+      "required": true,
+      "label": "送达位置"
+    },
+    {
+      "name": "recipient_id",
+      "type": "string",
+      "required": true,
+      "label": "收件人ID"
+    },
+    {
+      "name": "recipient_phone",
+      "type": "string",
+      "required": false,
+      "label": "收件人电话"
+    },
+    {
+      "name": "item_description",
+      "type": "string",
+      "required": false,
+      "default": "包裹",
+      "label": "物品描述"
+    },
+    {
+      "name": "pickup_timeout",
+      "type": "number",
+      "required": false,
+      "default": 300,
+      "label": "取件超时(秒)"
+    },
+    {
+      "name": "delivery_timeout",
+      "type": "number",
+      "required": false,
+      "default": 600,
+      "label": "送达超时(秒)"
+    }
+  ],
+
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 250, "y": 0 }
+    },
+    {
+      "id": "check-robot",
+      "type": "task",
+      "name": "检查机器人状态",
+      "position": { "x": 250, "y": 80 },
+      "config": {
+        "capability": "robot.status.get",
+        "parameters": {
+          "robot_id": "{{ robot_id }}"
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "id": "check-battery",
+      "type": "decision",
+      "name": "电量充足?",
+      "position": { "x": 250, "y": 160 },
+      "config": {
+        "condition": "{{ steps['check-robot'].result.battery_level > 30 }}"
+      }
+    },
+    {
+      "id": "go-pickup",
+      "type": "task",
+      "name": "前往取件点",
+      "position": { "x": 250, "y": 240 },
+      "config": {
+        "capability": "robot.navigation.goto",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "destination": "{{ pickup_location }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "wait-loading",
+      "type": "wait",
+      "name": "等待装载",
+      "position": { "x": 250, "y": 320 },
+      "config": {
+        "timeout": "{{ pickup_timeout }}",
+        "message": "请将物品放入机器人"
+      }
+    },
+    {
+      "id": "check-cross-floor",
+      "type": "decision",
+      "name": "跨楼层?",
+      "position": { "x": 250, "y": 400 },
+      "config": {
+        "condition": "{{ pickup_location.split('/')[0] != delivery_location.split('/')[0] }}"
+      }
+    },
+    {
+      "id": "call-elevator",
+      "type": "task",
+      "name": "叫电梯",
+      "position": { "x": 100, "y": 480 },
+      "config": {
+        "capability": "facility.elevator.call",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "to_floor": "{{ delivery_location.split('/')[0] }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "go-delivery",
+      "type": "task",
+      "name": "前往送达点",
+      "position": { "x": 250, "y": 560 },
+      "config": {
+        "capability": "robot.navigation.goto",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "destination": "{{ delivery_location }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "notify-recipient",
+      "type": "notification",
+      "name": "通知收件人",
+      "position": { "x": 250, "y": 640 },
+      "config": {
+        "channel": "sms",
+        "recipient": "{{ recipient_phone }}",
+        "message": "您的{{ item_description }}已送达，请及时取件"
+      }
+    },
+    {
+      "id": "wait-pickup",
+      "type": "wait",
+      "name": "等待取件",
+      "position": { "x": 250, "y": 720 },
+      "config": {
+        "timeout": "{{ delivery_timeout }}",
+        "message": "等待收件人取件"
+      }
+    },
+    {
+      "id": "check-timeout",
+      "type": "decision",
+      "name": "取件超时?",
+      "position": { "x": 250, "y": 800 },
+      "config": {
+        "condition": "{{ steps['wait-pickup'].timed_out }}"
+      }
+    },
+    {
+      "id": "notify-sender",
+      "type": "notification",
+      "name": "通知发件人",
+      "position": { "x": 450, "y": 800 },
+      "config": {
+        "channel": "ops",
+        "message": "配送超时：{{ item_description }} 未被取走"
+      }
+    },
+    {
+      "id": "end-success",
+      "type": "end",
+      "name": "配送成功",
+      "position": { "x": 250, "y": 880 }
+    },
+    {
+      "id": "end-timeout",
+      "type": "end",
+      "name": "配送超时",
+      "position": { "x": 450, "y": 880 }
+    },
+    {
+      "id": "end-low-battery",
+      "type": "end",
+      "name": "电量不足",
+      "position": { "x": 450, "y": 160 }
+    }
+  ],
+
+  "edges": [
+    { "id": "e1", "source": "start", "target": "check-robot" },
+    { "id": "e2", "source": "check-robot", "target": "check-battery" },
+    { "id": "e3", "source": "check-battery", "target": "go-pickup", "label": "是" },
+    { "id": "e4", "source": "check-battery", "target": "end-low-battery", "label": "否" },
+    { "id": "e5", "source": "go-pickup", "target": "wait-loading" },
+    { "id": "e6", "source": "wait-loading", "target": "check-cross-floor" },
+    { "id": "e7", "source": "check-cross-floor", "target": "call-elevator", "label": "是" },
+    { "id": "e8", "source": "check-cross-floor", "target": "go-delivery", "label": "否" },
+    { "id": "e9", "source": "call-elevator", "target": "go-delivery" },
+    { "id": "e10", "source": "go-delivery", "target": "notify-recipient" },
+    { "id": "e11", "source": "notify-recipient", "target": "wait-pickup" },
+    { "id": "e12", "source": "wait-pickup", "target": "check-timeout" },
+    { "id": "e13", "source": "check-timeout", "target": "end-success", "label": "否" },
+    { "id": "e14", "source": "check-timeout", "target": "notify-sender", "label": "是" },
+    { "id": "e15", "source": "notify-sender", "target": "end-timeout" }
+  ]
+}

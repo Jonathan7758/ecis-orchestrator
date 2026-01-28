@@ -1,0 +1,218 @@
+{
+  "$schema": "https://ecis.linkc.ai/schemas/workflow-template.schema.json",
+  "template_id": "visitor-welcome-workflow",
+  "name": "访客迎宾工作流",
+  "version": "1.0.0",
+  "category": "service",
+  "description": "机器人自动迎接访客并引导至目的地，包括身份验证、电梯联动、被访人通知",
+  "priority": "P1",
+  "estimated_duration": "10-30 minutes",
+  "involved_systems": ["ecis-service-robot", "ecis-property-facility", "ecis-human-agent"],
+  "trigger_condition": "访客预约 / 前台触发",
+
+  "variables": [
+    {
+      "name": "visitor_name",
+      "type": "string",
+      "required": true,
+      "label": "访客姓名"
+    },
+    {
+      "name": "visitor_phone",
+      "type": "string",
+      "required": false,
+      "label": "访客电话"
+    },
+    {
+      "name": "host_id",
+      "type": "string",
+      "required": true,
+      "label": "被访人ID"
+    },
+    {
+      "name": "host_name",
+      "type": "string",
+      "required": false,
+      "label": "被访人姓名"
+    },
+    {
+      "name": "destination",
+      "type": "string",
+      "required": true,
+      "label": "目的地"
+    },
+    {
+      "name": "welcome_message",
+      "type": "string",
+      "required": false,
+      "default": "欢迎光临，请跟我来",
+      "label": "欢迎语"
+    },
+    {
+      "name": "vip_mode",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "label": "VIP模式"
+    },
+    {
+      "name": "lobby_location",
+      "type": "string",
+      "required": false,
+      "default": "lobby-main",
+      "label": "大堂位置"
+    }
+  ],
+
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 250, "y": 0 }
+    },
+    {
+      "id": "verify-visitor",
+      "type": "task",
+      "name": "验证访客信息",
+      "position": { "x": 250, "y": 80 },
+      "config": {
+        "capability": "human.visitor.verify",
+        "parameters": {
+          "visitor_name": "{{ visitor_name }}",
+          "visitor_phone": "{{ visitor_phone }}",
+          "host_id": "{{ host_id }}"
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "id": "check-verified",
+      "type": "decision",
+      "name": "验证通过?",
+      "position": { "x": 250, "y": 160 },
+      "config": {
+        "condition": "{{ steps['verify-visitor'].result.verified }}"
+      }
+    },
+    {
+      "id": "assign-robot",
+      "type": "task",
+      "name": "分配迎宾机器人",
+      "position": { "x": 250, "y": 240 },
+      "config": {
+        "capability": "robot.assign",
+        "parameters": {
+          "task_type": "welcome",
+          "vip": "{{ vip_mode }}"
+        },
+        "timeout": 60
+      }
+    },
+    {
+      "id": "goto-lobby",
+      "type": "task",
+      "name": "前往大堂",
+      "position": { "x": 250, "y": 320 },
+      "config": {
+        "capability": "robot.navigation.goto",
+        "parameters": {
+          "robot_id": "{{ steps['assign-robot'].result.robot_id }}",
+          "destination": "{{ lobby_location }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "play-welcome",
+      "type": "task",
+      "name": "播放欢迎语",
+      "position": { "x": 250, "y": 400 },
+      "config": {
+        "capability": "robot.speech.play",
+        "parameters": {
+          "robot_id": "{{ steps['assign-robot'].result.robot_id }}",
+          "message": "{{ welcome_message }}",
+          "name": "{{ visitor_name }}"
+        }
+      }
+    },
+    {
+      "id": "check-elevator-needed",
+      "type": "decision",
+      "name": "需要电梯?",
+      "position": { "x": 250, "y": 480 },
+      "config": {
+        "condition": "{{ destination.includes('floor') and destination != 'floor-1' }}"
+      }
+    },
+    {
+      "id": "call-elevator",
+      "type": "task",
+      "name": "叫电梯",
+      "position": { "x": 100, "y": 560 },
+      "config": {
+        "capability": "facility.elevator.call",
+        "parameters": {
+          "robot_id": "{{ steps['assign-robot'].result.robot_id }}",
+          "to_floor": "{{ destination.split('/')[0] }}",
+          "priority": "{{ vip_mode ? 'high' : 'normal' }}"
+        },
+        "timeout": 300
+      }
+    },
+    {
+      "id": "guide-visitor",
+      "type": "task",
+      "name": "引导访客",
+      "position": { "x": 250, "y": 640 },
+      "config": {
+        "capability": "robot.navigation.guide",
+        "parameters": {
+          "robot_id": "{{ steps['assign-robot'].result.robot_id }}",
+          "destination": "{{ destination }}",
+          "speed": "{{ vip_mode ? 'slow' : 'normal' }}"
+        },
+        "timeout": 600
+      }
+    },
+    {
+      "id": "notify-host",
+      "type": "notification",
+      "name": "通知被访人",
+      "position": { "x": 250, "y": 720 },
+      "config": {
+        "channel": "app",
+        "recipient": "{{ host_id }}",
+        "message": "您的访客 {{ visitor_name }} 已到达 {{ destination }}"
+      }
+    },
+    {
+      "id": "end-success",
+      "type": "end",
+      "name": "迎宾完成",
+      "position": { "x": 250, "y": 800 }
+    },
+    {
+      "id": "end-rejected",
+      "type": "end",
+      "name": "验证失败",
+      "position": { "x": 450, "y": 160 }
+    }
+  ],
+
+  "edges": [
+    { "id": "e1", "source": "start", "target": "verify-visitor" },
+    { "id": "e2", "source": "verify-visitor", "target": "check-verified" },
+    { "id": "e3", "source": "check-verified", "target": "assign-robot", "label": "是" },
+    { "id": "e4", "source": "check-verified", "target": "end-rejected", "label": "否" },
+    { "id": "e5", "source": "assign-robot", "target": "goto-lobby" },
+    { "id": "e6", "source": "goto-lobby", "target": "play-welcome" },
+    { "id": "e7", "source": "play-welcome", "target": "check-elevator-needed" },
+    { "id": "e8", "source": "check-elevator-needed", "target": "call-elevator", "label": "是" },
+    { "id": "e9", "source": "check-elevator-needed", "target": "guide-visitor", "label": "否" },
+    { "id": "e10", "source": "call-elevator", "target": "guide-visitor" },
+    { "id": "e11", "source": "guide-visitor", "target": "notify-host" },
+    { "id": "e12", "source": "notify-host", "target": "end-success" }
+  ]
+}

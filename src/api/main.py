@@ -84,12 +84,13 @@ async def readiness_check():
 
 
 # 导入路由
-from src.api.routes import workflows, approvals, delivery, tasks
+from src.api.routes import workflows, approvals, delivery, tasks, templates
 
 app.include_router(workflows.router, prefix="/api/v1")
 app.include_router(approvals.router, prefix="/api/v1")
 app.include_router(delivery.router, prefix="/api/v1")
 app.include_router(tasks.router, prefix="/api/v1")
+app.include_router(templates.router)
 
 
 if __name__ == "__main__":

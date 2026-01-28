@@ -1,0 +1,206 @@
+{
+  "$schema": "https://ecis.linkc.ai/schemas/workflow-template.schema.json",
+  "template_id": "emergency-charging-workflow",
+  "name": "紧急充电工作流",
+  "version": "1.0.0",
+  "category": "maintenance",
+  "description": "机器人电量过低时的紧急充电工作流，自动暂停任务、导航至充电站、充电后恢复任务",
+  "priority": "P0",
+  "estimated_duration": "60-180 minutes",
+  "involved_systems": ["ecis-service-robot", "ecis-property-facility"],
+  "trigger_condition": "机器人电量 < 10%",
+
+  "variables": [
+    {
+      "name": "robot_id",
+      "type": "string",
+      "required": true,
+      "label": "机器人ID"
+    },
+    {
+      "name": "current_task_id",
+      "type": "string",
+      "required": false,
+      "label": "当前任务ID"
+    },
+    {
+      "name": "min_charge_level",
+      "type": "number",
+      "required": false,
+      "default": 80,
+      "label": "最低充电量%"
+    },
+    {
+      "name": "notify_threshold",
+      "type": "number",
+      "required": false,
+      "default": 5,
+      "label": "通知阈值%"
+    },
+    {
+      "name": "notify_ops",
+      "type": "boolean",
+      "required": false,
+      "default": true,
+      "label": "通知运维"
+    }
+  ],
+
+  "nodes": [
+    {
+      "id": "start",
+      "type": "start",
+      "name": "开始",
+      "position": { "x": 250, "y": 0 }
+    },
+    {
+      "id": "pause-task",
+      "type": "task",
+      "name": "暂停当前任务",
+      "position": { "x": 250, "y": 80 },
+      "config": {
+        "capability": "robot.task.pause",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "task_id": "{{ current_task_id }}"
+        },
+        "timeout": 30,
+        "skip_if_empty": true
+      }
+    },
+    {
+      "id": "find-charger",
+      "type": "task",
+      "name": "查找最近充电站",
+      "position": { "x": 250, "y": 160 },
+      "config": {
+        "capability": "facility.charger.find_nearest",
+        "parameters": {
+          "robot_id": "{{ robot_id }}"
+        },
+        "timeout": 30
+      }
+    },
+    {
+      "id": "navigate-charger",
+      "type": "task",
+      "name": "导航到充电站",
+      "position": { "x": 250, "y": 240 },
+      "config": {
+        "capability": "robot.navigation.goto",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "destination": "{{ steps['find-charger'].result.charger_location }}"
+        },
+        "timeout": 600
+      }
+    },
+    {
+      "id": "check-nav-result",
+      "type": "decision",
+      "name": "导航成功?",
+      "position": { "x": 250, "y": 320 },
+      "config": {
+        "condition": "{{ steps['navigate-charger'].success }}"
+      }
+    },
+    {
+      "id": "notify-ops-fail",
+      "type": "notification",
+      "name": "通知运维人员",
+      "position": { "x": 450, "y": 320 },
+      "config": {
+        "channel": "ops",
+        "message": "紧急：机器人 {{ robot_id }} 导航充电站失败，电量低，请人工处理",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "start-charging",
+      "type": "task",
+      "name": "开始充电",
+      "position": { "x": 250, "y": 400 },
+      "config": {
+        "capability": "robot.charging.start",
+        "parameters": {
+          "robot_id": "{{ robot_id }}"
+        },
+        "timeout": 60
+      }
+    },
+    {
+      "id": "wait-charging",
+      "type": "wait",
+      "name": "等待充电完成",
+      "position": { "x": 250, "y": 480 },
+      "config": {
+        "condition": "{{ robot.battery_level >= min_charge_level }}",
+        "timeout": 10800,
+        "poll_interval": 60
+      }
+    },
+    {
+      "id": "check-low-battery",
+      "type": "decision",
+      "name": "电量极低?",
+      "position": { "x": 250, "y": 560 },
+      "config": {
+        "condition": "{{ robot.battery_level < notify_threshold }}"
+      }
+    },
+    {
+      "id": "notify-low-battery",
+      "type": "notification",
+      "name": "电量告警",
+      "position": { "x": 450, "y": 560 },
+      "config": {
+        "channel": "ops",
+        "message": "警告：机器人 {{ robot_id }} 电量仅 {{ robot.battery_level }}%",
+        "condition": "{{ notify_ops }}"
+      }
+    },
+    {
+      "id": "resume-task",
+      "type": "task",
+      "name": "恢复原任务",
+      "position": { "x": 250, "y": 640 },
+      "config": {
+        "capability": "robot.task.resume",
+        "parameters": {
+          "robot_id": "{{ robot_id }}",
+          "task_id": "{{ current_task_id }}"
+        },
+        "timeout": 30,
+        "skip_if_empty": true
+      }
+    },
+    {
+      "id": "end-success",
+      "type": "end",
+      "name": "充电完成",
+      "position": { "x": 250, "y": 720 }
+    },
+    {
+      "id": "end-fail",
+      "type": "end",
+      "name": "需人工处理",
+      "position": { "x": 450, "y": 400 }
+    }
+  ],
+
+  "edges": [
+    { "id": "e1", "source": "start", "target": "pause-task" },
+    { "id": "e2", "source": "pause-task", "target": "find-charger" },
+    { "id": "e3", "source": "find-charger", "target": "navigate-charger" },
+    { "id": "e4", "source": "navigate-charger", "target": "check-nav-result" },
+    { "id": "e5", "source": "check-nav-result", "target": "start-charging", "label": "是" },
+    { "id": "e6", "source": "check-nav-result", "target": "notify-ops-fail", "label": "否" },
+    { "id": "e7", "source": "notify-ops-fail", "target": "end-fail" },
+    { "id": "e8", "source": "start-charging", "target": "wait-charging" },
+    { "id": "e9", "source": "wait-charging", "target": "check-low-battery" },
+    { "id": "e10", "source": "check-low-battery", "target": "resume-task", "label": "否" },
+    { "id": "e11", "source": "check-low-battery", "target": "notify-low-battery", "label": "是" },
+    { "id": "e12", "source": "notify-low-battery", "target": "resume-task" },
+    { "id": "e13", "source": "resume-task", "target": "end-success" }
+  ]
+}

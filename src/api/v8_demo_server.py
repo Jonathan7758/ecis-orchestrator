@@ -22,6 +22,8 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 
+from api.h5_routes import router as h5_router
+
 # V8 Modules
 from human_ops.storage import MemoryBackend
 from human_ops.staff_manager import StaffManager
@@ -208,6 +210,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include H5 frontend routes
+app.include_router(h5_router)
 
 
 # =========================================================================

@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="top-bar">
+  <h1>ECIS Tower C</h1>
+  <span class="user-tag" id="current-user">Wong Sir</span>
+</div>
+
+<!-- KPI Summary -->
+<div class="card">
+  <div class="card-title">Today's KPI Overview</div>
+  <div class="stat-grid">
+    <div class="stat-box"><div class="val" id="kpi-shi">--</div><div class="lbl">SHI Score</div></div>
+    <div class="stat-box"><div class="val" id="kpi-staff">--</div><div class="lbl">Active Staff</div></div>
+    <div class="stat-box"><div class="val" id="kpi-dispatch">--</div><div class="lbl">Dispatches Today</div></div>
+    <div class="stat-box"><div class="val" id="kpi-orders">--</div><div class="lbl">Open Orders</div></div>
+  </div>
+</div>
+
+<!-- Role Switcher -->
+<div class="card">
+  <div class="card-title">User Demo Roles</div>
+  <div class="btn-group" style="flex-wrap:wrap;">
+    <button class="btn btn-primary" style="flex:1;min-width:120px;" onclick="switchRole('ahlee')">
+      Ah Lee (Supervisor)
+    </button>
+    <button class="btn btn-warning" style="flex:1;min-width:120px;" onclick="switchRole('vivian')">
+      Vivian (Manager)
+    </button>
+    <button class="btn btn-danger" style="flex:1;min-width:120px;" onclick="switchRole('wongsir')">
+      Wong Sir (COO)
+    </button>
+  </div>
+</div>
+
+<!-- Quick Access by Role -->
+<div class="card" id="role-section">
+  <div class="card-title" id="role-title">Navigation</div>
+  <div id="role-nav"></div>
+</div>
+
+<!-- Staff Overview -->
+<div class="card">
+  <div class="card-title">Staff Team</div>
+  <div id="staff-list">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<!-- Module Status -->
+<div class="card">
+  <div class="card-title">V8 Module Status</div>
+  <div id="module-list">
+    <div class="list-item">
+      <div class="icon" style="background:#dcfce7;">H1</div>
+      <div class="content"><div class="name">Staff Management</div><div class="desc">Profiles, attendance, skills</div></div>
+      <span class="badge badge-active">OK</span>
+    </div>
+    <div class="list-item">
+      <div class="icon" style="background:#dcfce7;">H2</div>
+      <div class="content"><div class="name">Smart Scheduling</div><div class="desc">Auto schedule + adjustment</div></div>
+      <span class="badge badge-active">OK</span>
+    </div>
+    <div class="list-item">
+      <div class="icon" style="background:#dcfce7;">H3</div>
+      <div class="content"><div class="name">Exception Dispatch</div><div class="desc">Priority-based dispatch</div></div>
+      <span class="badge badge-active">OK</span>
+    </div>
+    <div class="list-item">
+      <div class="icon" style="background:#dcfce7;">H4</div>
+      <div class="content"><div class="name">Work Orders</div><div class="desc">CRUD + SLA tracking</div></div>
+      <span class="badge badge-active">OK</span>
+    </div>
+    <div class="list-item">
+      <div class="icon" style="background:#dcfce7;">D4</div>
+      <div class="content"><div class="name">Health Engine</div><div class="desc">6-dimension SHI calculation</div></div>
+      <span class="badge badge-active">OK</span>
+    </div>
+    <div class="list-item">
+      <div class="icon" style="background:#dcfce7;">D5</div>
+      <div class="content"><div class="name">ROI Engine</div><div class="desc">Cost savings & efficiency</div></div>
+      <span class="badge badge-active">OK</span>
+    </div>
+  </div>
+</div>
+
+<!-- Day Simulation -->
+<div class="card">
+  <div class="card-title">Full Day Simulation</div>
+  <p class="text-sm text-secondary" style="margin-bottom:12px;">
+    Run a complete Tower C day: schedule → check-ins → exceptions → work orders → health → ROI
+  </p>
+  <button class="btn btn-primary btn-block" id="btn-simulate" onclick="simulateDay()">
+    Run Day Simulation
+  </button>
+  <div id="sim-result" class="hidden" style="margin-top:12px;"></div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <a class="tab-item" href="/wechat/schedule"><span class="tab-icon">📋</span>Schedule</a>
+  <a class="tab-item" href="/wechat/dispatch/list"><span class="tab-icon">🚨</span>Dispatch</a>
+  <a class="tab-item" href="/wechat/orders"><span class="tab-icon">📝</span>Orders</a>
+  <a class="tab-item" href="/wechat/assessment"><span class="tab-icon">📊</span>Health</a>
+  <a class="tab-item active" href="/wechat/dashboard"><span class="tab-icon">🏠</span>Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const roleNavs = {
+  ahlee: {
+    title: 'Ah Lee — Supervisor Journey',
+    items: [
+      {icon:'📋', name:'View Schedule', desc:'Morning: check auto-generated schedule', href:'/wechat/schedule'},
+      {icon:'🚨', name:'Handle Exception', desc:'Dispatch staff for robot/complaint', href:'/wechat/dispatch/list'},
+      {icon:'📝', name:'Work Orders', desc:'Track maintenance tasks', href:'/wechat/orders'},
+    ]
+  },
+  vivian: {
+    title: 'Vivian — Manager Journey',
+    items: [
+      {icon:'📊', name:'Health Assessment', desc:'Submit & review SHI scores', href:'/wechat/assessment'},
+      {icon:'💬', name:'AI Assistant', desc:'Ask about staff, health, schedule', href:'/wechat/chat'},
+      {icon:'📝', name:'Work Orders', desc:'Monitor order lifecycle', href:'/wechat/orders'},
+      {icon:'📋', name:'Schedule Overview', desc:'Review team schedule', href:'/wechat/schedule'},
+    ]
+  },
+  wongsir: {
+    title: 'Wong Sir — COO Journey',
+    items: [
+      {icon:'📊', name:'Health Dashboard', desc:'Building SHI with 6 dimensions', href:'/wechat/assessment'},
+      {icon:'💰', name:'ROI Metrics', desc:'Cost savings, efficiency, human-robot ratio', href:'/wechat/roi'},
+      {icon:'💬', name:'AI Reports', desc:'Generate performance reports', href:'/wechat/chat'},
+    ]
+  },
+};
+
+function switchRole(role) {
+  const nav = roleNavs[role];
+  document.getElementById('role-title').textContent = nav.title;
+  document.getElementById('role-nav').innerHTML = nav.items.map(i => `
+    <a href="${i.href}" style="text-decoration:none;color:inherit;">
+      <div class="list-item">
+        <div class="icon" style="background:#dbeafe;font-size:20px;">${i.icon}</div>
+        <div class="content">
+          <div class="name">${i.name}</div>
+          <div class="desc">${i.desc}</div>
+        </div>
+        <span class="action">Go →</span>
+      </div>
+    </a>
+  `).join('');
+  const names = {ahlee:'Ah Lee', vivian:'Vivian', wongsir:'Wong Sir'};
+  document.getElementById('current-user').textContent = names[role];
+  toast(`Switched to ${names[role]}`);
+}
+
+async function loadKPI() {
+  try {
+    const [staff, pending] = await Promise.all([
+      api('/staff?building_id=tower-c'),
+      api('/dispatch/pending?building_id=tower-c'),
+    ]);
+    document.getElementById('kpi-staff').textContent =
+      staff.filter(s => s.status === 'active').length;
+    document.getElementById('kpi-dispatch').textContent = pending.length;
+
+    // Staff list
+    document.getElementById('staff-list').innerHTML = staff.map(s => `
+      <div class="list-item">
+        <div class="icon" style="background:${s.status==='active'?'#dcfce7':'#fee2e2'};">
+          ${s.role === 'cleaner' ? '🧹' : s.role === 'security' ? '🛡️' : s.role === 'supervisor' ? '👔' : '💼'}
+        </div>
+        <div class="content">
+          <div class="name">${s.name}</div>
+          <div class="desc">${s.role} · ${s.experience_years}yr · ${s.skills.slice(0,2).join(', ')}</div>
+        </div>
+        <span class="badge ${badgeClass(s.status)}">${s.status}</span>
+      </div>
+    `).join('');
+  } catch (e) {}
+
+  try {
+    const health = await api('/health/tower-c');
+    document.getElementById('kpi-shi').textContent =
+      (health.overall_score || 0).toFixed(0) || 'N/A';
+  } catch (e) {
+    document.getElementById('kpi-shi').textContent = 'N/A';
+  }
+
+  try {
+    const orders = await api('/orders?building_id=tower-c');
+    document.getElementById('kpi-orders').textContent =
+      orders.filter(o => o.status === 'open' || o.status === 'assigned').length;
+  } catch (e) {
+    document.getElementById('kpi-orders').textContent = '0';
+  }
+}
+
+async function simulateDay() {
+  const btn = document.getElementById('btn-simulate');
+  btn.textContent = 'Running...';
+  btn.disabled = true;
+  try {
+    const result = await api('/demo/simulate-day', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({}),
+    });
+    const el = document.getElementById('sim-result');
+    el.classList.remove('hidden');
+    el.innerHTML = `
+      <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;">
+        <strong style="color:#166534;">Day Simulation Complete!</strong>
+        <div class="stat-grid mt-12">
+          <div class="stat-box"><div class="val">${result.summary.schedule_assignments}</div><div class="lbl">Assignments</div></div>
+          <div class="stat-box"><div class="val">${result.summary.staff_checked_in}</div><div class="lbl">Check-ins</div></div>
+          <div class="stat-box"><div class="val">${result.summary.exceptions_handled}</div><div class="lbl">Exceptions</div></div>
+          <div class="stat-box"><div class="val">${result.summary.avg_health_score.toFixed(0)}</div><div class="lbl">Avg SHI</div></div>
+        </div>
+        <div class="mt-12 text-sm text-secondary">
+          ROI: ${(result.summary.roi_efficiency_vs_baseline * 100).toFixed(0)}% efficiency · ¥${result.summary.roi_cost_savings_monthly.toFixed(0)}/month savings
+        </div>
+      </div>
+    `;
+    btn.textContent = 'Simulation Complete ✓';
+    btn.className = 'btn btn-success btn-block';
+    loadKPI();
+    toast('Day simulation complete!');
+  } catch (e) {
+    btn.textContent = 'Run Day Simulation';
+    btn.disabled = false;
+    toast('Simulation failed: ' + e.message);
+  }
+}
+
+// Default to Wong Sir view
+switchRole('wongsir');
+loadKPI();
+</script>
+{% endblock %}

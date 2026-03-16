@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="top-bar">
+  <a class="back" href="/wechat/dashboard">&#8249;</a>
+  <h1>Today's Schedule</h1>
+  <span class="user-tag" id="user-role">Ah Lee</span>
+</div>
+
+<!-- Date bar -->
+<div class="card" style="padding:10px 16px;">
+  <div class="flex-between">
+    <span class="text-sm text-secondary" id="schedule-date">Loading...</span>
+    <span class="badge badge-draft" id="schedule-status">--</span>
+  </div>
+</div>
+
+<!-- Staff assignments -->
+<div class="card">
+  <div class="card-title">Staff Assignments</div>
+  <div id="assignments-list">
+    <div class="loading"><div class="spinner"></div>Loading schedule...</div>
+  </div>
+</div>
+
+<!-- Robot assignments -->
+<div class="card">
+  <div class="card-title">Robot Assignments</div>
+  <div id="robot-list">
+    <div class="loading"><div class="spinner"></div></div>
+  </div>
+</div>
+
+<!-- Schedule confidence -->
+<div class="card text-center">
+  <div class="card-title">Schedule Confidence</div>
+  <div class="score-circle score-good" id="confidence-circle">
+    <span id="confidence-val">--</span>
+    <span class="score-label">%</span>
+  </div>
+  <div class="text-sm text-secondary" id="schedule-notes"></div>
+</div>
+
+<!-- Action buttons -->
+<div class="card" id="action-section">
+  <div class="btn-group">
+    <button class="btn btn-primary btn-block" id="btn-confirm" onclick="confirmSchedule()">
+      Confirm Schedule
+    </button>
+  </div>
+  <div class="btn-group">
+    <button class="btn btn-outline" style="flex:1;" onclick="location.href='/wechat/dispatch/new'">
+      Report Exception
+    </button>
+    <button class="btn btn-outline" style="flex:1;" onclick="location.href='/wechat/orders'">
+      Work Orders
+    </button>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <a class="tab-item active" href="/wechat/schedule"><span class="tab-icon">📋</span>Schedule</a>
+  <a class="tab-item" href="/wechat/dispatch/list"><span class="tab-icon">🚨</span>Dispatch</a>
+  <a class="tab-item" href="/wechat/orders"><span class="tab-icon">📝</span>Orders</a>
+  <a class="tab-item" href="/wechat/assessment"><span class="tab-icon">📊</span>Health</a>
+  <a class="tab-item" href="/wechat/dashboard"><span class="tab-icon">🏠</span>Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let scheduleId = null;
+
+async function loadSchedule() {
+  try {
+    // First generate a schedule
+    const plan = await api('/schedule/generate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({building_id: 'tower-c'})
+    });
+    scheduleId = plan.schedule_id;
+    renderSchedule(plan);
+  } catch (e) {
+    document.getElementById('assignments-list').innerHTML =
+      '<div class="text-center text-secondary">Failed to load schedule</div>';
+  }
+}
+
+function renderSchedule(plan) {
+  document.getElementById('schedule-date').textContent =
+    `Tower C — ${plan.date}`;
+  document.getElementById('schedule-status').textContent = plan.status;
+  document.getElementById('schedule-status').className =
+    `badge ${badgeClass(plan.status)}`;
+
+  // Staff assignments
+  const aList = document.getElementById('assignments-list');
+  if (!plan.assignments || plan.assignments.length === 0) {
+    aList.innerHTML = '<div class="text-center text-secondary">No assignments</div>';
+  } else {
+    aList.innerHTML = plan.assignments.map(a => `
+      <div class="list-item">
+        <div class="icon" style="background:#dbeafe;">👤</div>
+        <div class="content">
+          <div class="name">${a.staff_name}</div>
+          <div class="desc">${a.zone_name} · ${a.shift} · ${a.task_type}</div>
+          <div class="desc">${a.start_time} → ${a.end_time}${a.paired_robot_id ? ' 🤖 '+a.paired_robot_id : ''}</div>
+        </div>
+        <span class="badge badge-active">${a.shift}</span>
+      </div>
+    `).join('');
+  }
+
+  // Robot assignments
+  const rList = document.getElementById('robot-list');
+  if (!plan.robot_assignments || plan.robot_assignments.length === 0) {
+    rList.innerHTML = '<div class="text-center text-secondary">No robots assigned</div>';
+  } else {
+    rList.innerHTML = plan.robot_assignments.map(r => `
+      <div class="list-item">
+        <div class="icon" style="background:#fef3c7;">🤖</div>
+        <div class="content">
+          <div class="name">${r.robot_id}</div>
+          <div class="desc">${r.zone_id} · ${r.task_type} · Battery: ${r.battery_level}%</div>
+        </div>
+        <span class="badge badge-info">${r.shift}</span>
+      </div>
+    `).join('');
+  }
+
+  // Confidence
+  const conf = Math.round((plan.confidence || 0) * 100);
+  document.getElementById('confidence-val').textContent = conf;
+  const circle = document.getElementById('confidence-circle');
+  circle.className = `score-circle ${scoreClass(conf)}`;
+
+  // Notes
+  if (plan.notes && plan.notes.length > 0) {
+    document.getElementById('schedule-notes').textContent = plan.notes.join('; ');
+  }
+
+  // Update confirm button
+  if (plan.status === 'confirmed') {
+    document.getElementById('btn-confirm').textContent = 'Schedule Confirmed ✓';
+    document.getElementById('btn-confirm').disabled = true;
+    document.getElementById('btn-confirm').className = 'btn btn-success btn-block';
+  }
+}
+
+async function confirmSchedule() {
+  if (!scheduleId) return;
+  try {
+    await api(`/schedule/${scheduleId}/confirm`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({confirmed_by: 'tc-004'})
+    });
+    document.getElementById('btn-confirm').textContent = 'Schedule Confirmed ✓';
+    document.getElementById('btn-confirm').className = 'btn btn-success btn-block';
+    document.getElementById('schedule-status').textContent = 'confirmed';
+    document.getElementById('schedule-status').className = 'badge badge-active';
+    toast('Schedule confirmed!');
+  } catch (e) {
+    toast('Failed to confirm');
+  }
+}
+
+loadSchedule();
+</script>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="top-bar">
+  <a class="back" href="/wechat/dashboard">&#8249;</a>
+  <h1>AI Assistant</h1>
+  <span class="user-tag">Vivian</span>
+</div>
+
+<!-- Chat container -->
+<div style="padding: 12px 16px; padding-bottom: 80px;" id="chat-area">
+  <!-- System welcome -->
+  <div style="display:flex;gap:10px;margin-bottom:16px;">
+    <div style="width:36px;height:36px;border-radius:50%;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:16px;">AI</div>
+    <div style="background:#fff;border-radius:12px;padding:12px;max-width:80%;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+      <div style="font-size:14px;line-height:1.5;">
+        Hi Vivian! I'm your ECIS AI Assistant. I can help you with:
+        <ul style="margin:8px 0 0 16px;font-size:13px;color:var(--text-secondary);">
+          <li>Query staff status & workload</li>
+          <li>Check building health scores</li>
+          <li>View schedule & dispatch info</li>
+          <li>Generate performance reports</li>
+        </ul>
+        How can I help you today?
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick action chips -->
+<div class="card" style="position:relative;margin-bottom:70px;">
+  <div class="card-title">Quick Queries</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;" onclick="quickQuery('staff')">Staff Status</button>
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;" onclick="quickQuery('health')">Health Score</button>
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;" onclick="quickQuery('schedule')">Today's Schedule</button>
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;" onclick="quickQuery('dispatch')">Pending Dispatch</button>
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;" onclick="quickQuery('orders')">Work Orders</button>
+    <button class="btn btn-outline" style="font-size:12px;padding:6px 12px;" onclick="quickQuery('roi')">ROI Report</button>
+  </div>
+</div>
+
+<!-- Input bar (fixed at bottom above tab bar) -->
+<div style="position:fixed;bottom:56px;left:50%;transform:translateX(-50%);width:100%;max-width:430px;background:#fff;border-top:1px solid var(--border);padding:8px 16px;display:flex;gap:8px;z-index:99;">
+  <input class="form-input" id="chat-input" placeholder="Ask me anything..." style="flex:1;margin:0;"
+         onkeypress="if(event.key==='Enter')sendMessage()"/>
+  <button class="btn btn-primary" style="padding:8px 16px;" onclick="sendMessage()">Send</button>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <a class="tab-item" href="/wechat/schedule"><span class="tab-icon">📋</span>Schedule</a>
+  <a class="tab-item" href="/wechat/dispatch/list"><span class="tab-icon">🚨</span>Dispatch</a>
+  <a class="tab-item" href="/wechat/orders"><span class="tab-icon">📝</span>Orders</a>
+  <a class="tab-item" href="/wechat/assessment"><span class="tab-icon">📊</span>Health</a>
+  <a class="tab-item" href="/wechat/dashboard"><span class="tab-icon">🏠</span>Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addMessage(role, content) {
+  const area = document.getElementById('chat-area');
+  const isUser = role === 'user';
+  area.innerHTML += `
+    <div style="display:flex;gap:10px;margin-bottom:16px;${isUser?'flex-direction:row-reverse;':''}">
+      <div style="width:36px;height:36px;border-radius:50%;background:${isUser?'#e2e8f0':'var(--primary)'};color:${isUser?'var(--text)':'#fff'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;">
+        ${isUser?'V':'AI'}
+      </div>
+      <div style="background:${isUser?'#dbeafe':'#fff'};border-radius:12px;padding:12px;max-width:80%;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
+        <div style="font-size:14px;line-height:1.5;">${content}</div>
+      </div>
+    </div>
+  `;
+  area.scrollIntoView({behavior:'smooth', block:'end'});
+}
+
+async function quickQuery(type) {
+  const queries = {
+    staff: {msg: 'Show me current staff status', fn: loadStaffStatus},
+    health: {msg: 'What is the building health score?', fn: loadHealthInfo},
+    schedule: {msg: 'Show today\'s schedule', fn: loadScheduleInfo},
+    dispatch: {msg: 'Any pending dispatches?', fn: loadDispatchInfo},
+    orders: {msg: 'Show work order summary', fn: loadOrdersInfo},
+    roi: {msg: 'Show ROI metrics', fn: loadROIInfo},
+  };
+  const q = queries[type];
+  addMessage('user', q.msg);
+  await q.fn();
+}
+
+async function sendMessage() {
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  addMessage('user', msg);
+
+  // Simple keyword matching for demo
+  const lower = msg.toLowerCase();
+  if (lower.includes('staff') || lower.includes('人员')) await loadStaffStatus();
+  else if (lower.includes('health') || lower.includes('健康')) await loadHealthInfo();
+  else if (lower.includes('schedule') || lower.includes('排班')) await loadScheduleInfo();
+  else if (lower.includes('dispatch') || lower.includes('异常')) await loadDispatchInfo();
+  else if (lower.includes('order') || lower.includes('工单')) await loadOrdersInfo();
+  else if (lower.includes('roi') || lower.includes('投资')) await loadROIInfo();
+  else {
+    addMessage('ai', `I understand you're asking about "${msg}". Let me check the available data for Tower C. Try clicking one of the quick query buttons for specific information.`);
+  }
+}
+
+async function loadStaffStatus() {
+  try {
+    const staff = await api('/staff?building_id=tower-c');
+    const active = staff.filter(s => s.status === 'active').length;
+    let html = `<strong>Tower C Staff Overview:</strong><br>`;
+    html += `Total: ${staff.length} | Active: ${active}<br><br>`;
+    staff.forEach(s => {
+      html += `<strong>${s.name}</strong> (${s.role}) — ${s.status}<br>`;
+      html += `<span style="color:var(--text-secondary);font-size:12px;">Skills: ${s.skills.join(', ')} · ${s.experience_years}yr exp</span><br><br>`;
+    });
+    addMessage('ai', html);
+  } catch (e) { addMessage('ai', 'Failed to load staff data.'); }
+}
+
+async function loadHealthInfo() {
+  try {
+    const summary = await api('/health/tower-c');
+    let html = `<strong>Tower C Health Summary:</strong><br>`;
+    html += `Overall SHI: <strong style="color:var(--primary);">${(summary.overall_score||0).toFixed(1)}</strong>/100<br>`;
+    html += `Areas measured: ${summary.area_count||0}<br>`;
+    if (summary.dimensions) {
+      html += `<br><strong>Dimensions:</strong><br>`;
+      Object.entries(summary.dimensions).forEach(([k,v]) => {
+        html += `${k}: ${typeof v === 'number' ? v.toFixed(1) : v}<br>`;
+      });
+    }
+    addMessage('ai', html);
+  } catch (e) { addMessage('ai', 'No health data available yet. Calculate health scores first via the Health page.'); }
+}
+
+async function loadScheduleInfo() {
+  try {
+    const plan = await api('/schedule/generate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({building_id:'tower-c'}),
+    });
+    let html = `<strong>Today's Schedule (${plan.date}):</strong><br>`;
+    html += `Status: ${plan.status} | Confidence: ${(plan.confidence*100).toFixed(0)}%<br><br>`;
+    plan.assignments.forEach(a => {
+      html += `<strong>${a.staff_name}</strong> → ${a.zone_name}<br>`;
+      html += `<span style="font-size:12px;color:var(--text-secondary);">${a.shift} · ${a.task_type} · ${a.start_time}→${a.end_time}</span><br><br>`;
+    });
+    addMessage('ai', html);
+  } catch (e) { addMessage('ai', 'Failed to load schedule.'); }
+}
+
+async function loadDispatchInfo() {
+  try {
+    const records = await api('/dispatch/pending?building_id=tower-c');
+    if (records.length === 0) {
+      addMessage('ai', 'No pending dispatches for Tower C. Everything is running smoothly!');
+    } else {
+      let html = `<strong>${records.length} Pending Dispatches:</strong><br><br>`;
+      records.forEach(r => {
+        html += `<strong>${r.event?.event_type}</strong> in ${r.event?.zone_id}<br>`;
+        html += `<span style="font-size:12px;">${r.event?.description || ''}</span><br><br>`;
+      });
+      addMessage('ai', html);
+    }
+  } catch (e) { addMessage('ai', 'Failed to load dispatch data.'); }
+}
+
+async function loadOrdersInfo() {
+  try {
+    const orders = await api('/orders?building_id=tower-c');
+    if (orders.length === 0) {
+      addMessage('ai', 'No work orders for Tower C currently.');
+    } else {
+      const open = orders.filter(o => o.status === 'open').length;
+      const assigned = orders.filter(o => o.status === 'assigned').length;
+      let html = `<strong>Work Orders Summary:</strong><br>`;
+      html += `Total: ${orders.length} | Open: ${open} | Assigned: ${assigned}<br><br>`;
+      orders.slice(0, 5).forEach(o => {
+        html += `<strong>${o.title}</strong> [${o.status}]<br>`;
+        html += `<span style="font-size:12px;color:var(--text-secondary);">${o.order_type} · ${o.priority}</span><br><br>`;
+      });
+      addMessage('ai', html);
+    }
+  } catch (e) { addMessage('ai', 'Failed to load work orders.'); }
+}
+
+async function loadROIInfo() {
+  try {
+    const roi = await api('/roi/tower-c');
+    let html = `<strong>Tower C ROI Metrics:</strong><br><br>`;
+    html += `Managed Area/Person: <strong>${(roi.managed_area_per_person||0).toFixed(0)}</strong> m²<br>`;
+    html += `Task Completion: <strong>${((roi.task_completion_rate||0)*100).toFixed(0)}%</strong><br>`;
+    html += `Robot Utilization: <strong>${((roi.robot_utilization_rate||0)*100).toFixed(0)}%</strong><br>`;
+    html += `Human-Robot Ratio: <strong>${(roi.human_robot_ratio||0).toFixed(1)}</strong><br>`;
+    html += `Cost Savings (monthly): <strong>¥${(roi.cost_savings_monthly||0).toFixed(0)}</strong><br>`;
+    html += `Efficiency vs Baseline: <strong>${((roi.efficiency_vs_baseline||0)*100).toFixed(0)}%</strong><br>`;
+    addMessage('ai', html);
+  } catch (e) { addMessage('ai', 'No ROI data available yet. Run a day simulation first.'); }
+}
+</script>
+{% endblock %}

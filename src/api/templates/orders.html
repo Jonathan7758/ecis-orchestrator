@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="top-bar">
+  <a class="back" href="/wechat/dashboard">&#8249;</a>
+  <h1>Work Orders</h1>
+  <span class="user-tag">Vivian</span>
+</div>
+
+<!-- Quick Stats -->
+<div class="card">
+  <div class="stat-grid">
+    <div class="stat-box"><div class="val" id="stat-open">--</div><div class="lbl">Open</div></div>
+    <div class="stat-box"><div class="val" id="stat-resolved">--</div><div class="lbl">Resolved</div></div>
+    <div class="stat-box"><div class="val" id="stat-sla">--</div><div class="lbl">SLA Breaches</div></div>
+    <div class="stat-box"><div class="val" id="stat-avg-hrs">--</div><div class="lbl">Avg Resolution (hrs)</div></div>
+  </div>
+</div>
+
+<!-- Create New Order -->
+<div class="card">
+  <div class="card-title">Create Work Order</div>
+  <div class="form-group">
+    <label class="form-label">Title</label>
+    <input class="form-input" id="order-title" value="Replace lobby floor scrubber filter"/>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Type</label>
+    <select class="form-input form-select" id="order-type">
+      <option value="maintenance">Maintenance</option>
+      <option value="cleaning">Cleaning</option>
+      <option value="repair">Repair</option>
+      <option value="inspection">Inspection</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Priority</label>
+    <select class="form-input form-select" id="order-priority">
+      <option value="normal">Normal</option>
+      <option value="high">High</option>
+      <option value="critical">Critical</option>
+      <option value="low">Low</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Description</label>
+    <input class="form-input" id="order-desc" value="Filter clogged, reduced cleaning efficiency"/>
+  </div>
+  <button class="btn btn-primary btn-block" onclick="createOrder()">Create Order</button>
+</div>
+
+<!-- Order List -->
+<div class="card">
+  <div class="flex-between" style="margin-bottom:12px;">
+    <div class="card-title" style="margin:0;">Order List</div>
+    <select class="form-input form-select" style="width:auto;font-size:12px;padding:4px 8px;" id="filter-status" onchange="loadOrders()">
+      <option value="">All</option>
+      <option value="open">Open</option>
+      <option value="assigned">Assigned</option>
+      <option value="in_progress">In Progress</option>
+      <option value="resolved">Resolved</option>
+    </select>
+  </div>
+  <div id="order-list">
+    <div class="loading"><div class="spinner"></div>Loading orders...</div>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <a class="tab-item" href="/wechat/schedule"><span class="tab-icon">📋</span>Schedule</a>
+  <a class="tab-item" href="/wechat/dispatch/list"><span class="tab-icon">🚨</span>Dispatch</a>
+  <a class="tab-item active" href="/wechat/orders"><span class="tab-icon">📝</span>Orders</a>
+  <a class="tab-item" href="/wechat/assessment"><span class="tab-icon">📊</span>Health</a>
+  <a class="tab-item" href="/wechat/dashboard"><span class="tab-icon">🏠</span>Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function createOrder() {
+  const body = {
+    order_type: document.getElementById('order-type').value,
+    source: 'manual',
+    title: document.getElementById('order-title').value,
+    description: document.getElementById('order-desc').value,
+    priority: document.getElementById('order-priority').value,
+    building_id: 'tower-c',
+    zone_id: 'tc-lobby',
+  };
+  try {
+    const result = await api('/orders', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    toast('Order created: ' + result.order_id.substring(0,8));
+    loadOrders();
+    loadStats();
+  } catch (e) { toast('Failed: ' + e.message); }
+}
+
+async function assignOrder(orderId) {
+  try {
+    await api(`/orders/${orderId}/assign`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({staff_id: 'tc-003'}),
+    });
+    toast('Order assigned!');
+    loadOrders();
+  } catch (e) { toast('Failed'); }
+}
+
+async function resolveOrder(orderId) {
+  try {
+    await api(`/orders/${orderId}/resolve`, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({resolution: 'Filter replaced, cleaning efficiency restored'}),
+    });
+    toast('Order resolved!');
+    loadOrders();
+    loadStats();
+  } catch (e) { toast('Failed'); }
+}
+
+async function loadOrders() {
+  const status = document.getElementById('filter-status').value;
+  const qs = status ? `?building_id=tower-c&status=${status}` : '?building_id=tower-c';
+  try {
+    const orders = await api('/orders' + qs);
+    const el = document.getElementById('order-list');
+    if (orders.length === 0) {
+      el.innerHTML = '<div class="text-center text-secondary">No orders found</div>';
+    } else {
+      el.innerHTML = orders.map(o => `
+        <div class="list-item">
+          <div class="icon" style="background:${o.priority==='high'||o.priority==='critical'?'#fee2e2':'#dbeafe'};">
+            ${o.priority==='critical'?'🔴':o.priority==='high'?'🟠':'📋'}
+          </div>
+          <div class="content">
+            <div class="name">${o.title}</div>
+            <div class="desc">${o.order_type} · ${o.priority} · ${o.assigned_to ? 'Assigned: '+o.assigned_to : 'Unassigned'}</div>
+            <div class="desc">${o.description || ''}</div>
+            ${o.status === 'open' ? `<button class="btn btn-primary" style="padding:4px 12px;font-size:12px;margin-top:6px;" onclick="assignOrder('${o.order_id}')">Assign</button>` : ''}
+            ${o.status === 'assigned' || o.status === 'in_progress' ? `<button class="btn btn-success" style="padding:4px 12px;font-size:12px;margin-top:6px;" onclick="resolveOrder('${o.order_id}')">Resolve</button>` : ''}
+          </div>
+          <span class="badge ${badgeClass(o.status)}">${o.status}</span>
+        </div>
+      `).join('');
+    }
+  } catch (e) {
+    document.getElementById('order-list').innerHTML =
+      '<div class="text-center text-secondary">Failed to load</div>';
+  }
+}
+
+async function loadStats() {
+  try {
+    const stats = await api('/orders/stats/tower-c?days=30');
+    document.getElementById('stat-open').textContent = stats.open_orders || 0;
+    document.getElementById('stat-resolved').textContent =
+      (stats.total_orders || 0) - (stats.open_orders || 0);
+    document.getElementById('stat-sla').textContent = stats.sla_breach_count || 0;
+    document.getElementById('stat-avg-hrs').textContent =
+      (stats.avg_resolution_hours || 0).toFixed(1);
+  } catch (e) {}
+}
+
+loadOrders();
+loadStats();
+</script>
+{% endblock %}

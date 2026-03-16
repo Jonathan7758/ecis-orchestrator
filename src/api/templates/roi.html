@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="top-bar">
+  <a class="back" href="/wechat/dashboard">&#8249;</a>
+  <h1>ROI Metrics</h1>
+  <span class="user-tag">Wong Sir</span>
+</div>
+
+<!-- ROI Summary -->
+<div class="card text-center">
+  <div class="card-title">Tower C ROI Overview</div>
+  <div id="roi-summary">
+    <div class="loading"><div class="spinner"></div>Loading ROI data...</div>
+  </div>
+</div>
+
+<!-- Key Metrics -->
+<div class="card">
+  <div class="card-title">Key Metrics</div>
+  <div class="stat-grid" id="roi-metrics">
+    <div class="stat-box"><div class="val" id="roi-area">--</div><div class="lbl">m²/Person</div></div>
+    <div class="stat-box"><div class="val" id="roi-completion">--</div><div class="lbl">Task Completion</div></div>
+    <div class="stat-box"><div class="val" id="roi-robot">--</div><div class="lbl">Robot Utilization</div></div>
+    <div class="stat-box"><div class="val" id="roi-ratio">--</div><div class="lbl">Human:Robot</div></div>
+  </div>
+</div>
+
+<!-- Cost Analysis -->
+<div class="card">
+  <div class="card-title">Cost Analysis</div>
+  <div id="cost-analysis">
+    <div class="list-item">
+      <div class="content"><div class="name">Monthly Savings</div></div>
+      <span class="text-sm" style="color:var(--success);font-weight:700;" id="cost-savings">--</span>
+    </div>
+    <div class="list-item">
+      <div class="content"><div class="name">Efficiency vs Baseline</div></div>
+      <span class="text-sm" style="color:var(--primary);font-weight:700;" id="cost-efficiency">--</span>
+    </div>
+    <div class="list-item">
+      <div class="content"><div class="name">SHI-Adjusted Efficiency</div></div>
+      <span class="text-sm" style="font-weight:700;" id="cost-shi">--</span>
+    </div>
+  </div>
+</div>
+
+<!-- Calculate ROI -->
+<div class="card">
+  <div class="card-title">Calculate Today's ROI</div>
+  <p class="text-sm text-secondary" style="margin-bottom:12px;">
+    Generate ROI metrics based on current Tower C operational data.
+  </p>
+  <button class="btn btn-primary btn-block" onclick="calculateROI()">Calculate ROI</button>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <a class="tab-item" href="/wechat/schedule"><span class="tab-icon">📋</span>Schedule</a>
+  <a class="tab-item" href="/wechat/dispatch/list"><span class="tab-icon">🚨</span>Dispatch</a>
+  <a class="tab-item" href="/wechat/orders"><span class="tab-icon">📝</span>Orders</a>
+  <a class="tab-item" href="/wechat/assessment"><span class="tab-icon">📊</span>Health</a>
+  <a class="tab-item active" href="/wechat/dashboard"><span class="tab-icon">🏠</span>Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadROI() {
+  try {
+    const roi = await api('/roi/tower-c');
+    renderROI(roi);
+  } catch (e) {
+    document.getElementById('roi-summary').innerHTML =
+      '<div class="text-center text-secondary">No ROI data yet. Click "Calculate ROI" or run a day simulation first.</div>';
+  }
+}
+
+function renderROI(roi) {
+  document.getElementById('roi-summary').innerHTML = `
+    <div class="score-circle ${scoreClass((roi.efficiency_vs_baseline||0)*100)}" style="width:100px;height:100px;font-size:18px;">
+      <span>${((roi.efficiency_vs_baseline||0)*100).toFixed(0)}%</span>
+      <span class="score-label">Efficiency</span>
+    </div>
+    <div class="text-sm text-secondary mt-12">vs baseline operational cost</div>
+  `;
+  document.getElementById('roi-area').textContent = (roi.managed_area_per_person||0).toFixed(0);
+  document.getElementById('roi-completion').textContent = ((roi.task_completion_rate||0)*100).toFixed(0)+'%';
+  document.getElementById('roi-robot').textContent = ((roi.robot_utilization_rate||0)*100).toFixed(0)+'%';
+  document.getElementById('roi-ratio').textContent = (roi.human_robot_ratio||0).toFixed(1);
+  document.getElementById('cost-savings').textContent = '¥' + (roi.cost_savings_monthly||0).toFixed(0);
+  document.getElementById('cost-efficiency').textContent = ((roi.efficiency_vs_baseline||0)*100).toFixed(0) + '%';
+  document.getElementById('cost-shi').textContent = ((roi.shi_adjusted_efficiency||0)*100).toFixed(0) + '%';
+}
+
+async function calculateROI() {
+  try {
+    const roi = await api('/roi/calculate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        building_id: 'tower-c',
+        stats: {
+          total_area: 15000, staff_count: 5, robot_count: 2,
+          tasks_completed: 18, tasks_total: 20,
+          robot_hours: 14, total_hours: 16,
+          baseline_cost: 5000, current_cost: 3200,
+          shi_score: 85.5,
+        }
+      }),
+    });
+    renderROI(roi);
+    toast('ROI calculated!');
+  } catch (e) { toast('Failed: ' + e.message); }
+}
+
+loadROI();
+</script>
+{% endblock %}

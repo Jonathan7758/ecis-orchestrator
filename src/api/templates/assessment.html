@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block body %}
+<div class="top-bar">
+  <a class="back" href="/wechat/dashboard">&#8249;</a>
+  <h1>Health Assessment</h1>
+  <span class="user-tag">Vivian</span>
+</div>
+
+<!-- Building Health Summary -->
+<div class="card text-center">
+  <div class="card-title">Tower C Service Health Index</div>
+  <div class="score-circle score-good" id="shi-circle">
+    <span id="shi-val">--</span>
+    <span class="score-label">SHI</span>
+  </div>
+  <div class="text-sm text-secondary" id="shi-desc">Loading...</div>
+</div>
+
+<!-- Area Health Cards -->
+<div class="card">
+  <div class="card-title">Area Health Scores</div>
+  <div id="area-health">
+    <div class="loading"><div class="spinner"></div>Calculating...</div>
+  </div>
+</div>
+
+<!-- Manual Assessment Form -->
+<div class="card">
+  <div class="card-title">Submit Manual Assessment</div>
+  <div class="form-group">
+    <label class="form-label">Area</label>
+    <select class="form-input form-select" id="assess-area">
+      <option value="tower-c_lobby">Tower C Lobby</option>
+      <option value="tower-c_3f">Tower C 3rd Floor</option>
+      <option value="tower-c_parking">Tower C Parking</option>
+    </select>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Score: <span id="score-display">80</span></label>
+    <input type="range" class="form-slider" id="assess-score" min="0" max="100" value="80"
+           oninput="document.getElementById('score-display').textContent=this.value"/>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Notes</label>
+    <input class="form-input" id="assess-notes" placeholder="Your assessment notes..."
+           value="Lobby generally clean, minor scuff marks near entrance"/>
+  </div>
+  <button class="btn btn-primary btn-block" onclick="submitAssessment()">
+    Submit Assessment
+  </button>
+</div>
+
+<!-- Health Dimensions Breakdown -->
+<div class="card">
+  <div class="card-title">Health Dimensions & Weights</div>
+  <div id="dimensions-info">
+    <div class="list-item">
+      <div class="content"><div class="name">Cleanliness (w=0.15)</div>
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;">
+          <div style="background:var(--success);height:100%;border-radius:4px;width:85%"></div>
+        </div></div>
+      <span class="text-sm" style="color:var(--success);">85</span>
+    </div>
+    <div class="list-item">
+      <div class="content"><div class="name">Tenant Satisfaction (w=0.20)</div>
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;">
+          <div style="background:var(--success);height:100%;border-radius:4px;width:88%"></div>
+        </div></div>
+      <span class="text-sm" style="color:var(--success);">88</span>
+    </div>
+    <div class="list-item">
+      <div class="content"><div class="name">Staff Attendance (w=0.10)</div>
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;">
+          <div style="background:var(--success);height:100%;border-radius:4px;width:100%"></div>
+        </div></div>
+      <span class="text-sm" style="color:var(--success);">100</span>
+    </div>
+    <div class="list-item">
+      <div class="content"><div class="name">Robot Availability (w=0.10)</div>
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;">
+          <div style="background:var(--success);height:100%;border-radius:4px;width:90%"></div>
+        </div></div>
+      <span class="text-sm" style="color:var(--success);">90</span>
+    </div>
+    <div class="list-item">
+      <div class="content"><div class="name">Complaint Response (w=0.15)</div>
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;">
+          <div style="background:var(--success);height:100%;border-radius:4px;width:80%"></div>
+        </div></div>
+      <span class="text-sm" style="color:var(--success);">80</span>
+    </div>
+    <div class="list-item">
+      <div class="content"><div class="name">Manual Assessment (w=0.30)</div>
+        <div style="background:#e2e8f0;border-radius:4px;height:6px;margin-top:6px;">
+          <div style="background:var(--warning);height:100%;border-radius:4px;width:78%"></div>
+        </div></div>
+      <span class="text-sm" style="color:var(--warning);">78</span>
+    </div>
+  </div>
+</div>
+
+<!-- Tab bar -->
+<div class="tab-bar">
+  <a class="tab-item" href="/wechat/schedule"><span class="tab-icon">📋</span>Schedule</a>
+  <a class="tab-item" href="/wechat/dispatch/list"><span class="tab-icon">🚨</span>Dispatch</a>
+  <a class="tab-item" href="/wechat/orders"><span class="tab-icon">📝</span>Orders</a>
+  <a class="tab-item active" href="/wechat/assessment"><span class="tab-icon">📊</span>Health</a>
+  <a class="tab-item" href="/wechat/dashboard"><span class="tab-icon">🏠</span>Dashboard</a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadHealth() {
+  // Calculate health for all 3 areas
+  const areas = [
+    {area_id:'tower-c_lobby', name:'Tower C Lobby',
+     metrics:{cleanliness:88,tenant_satisfaction:85,staff_attendance:100,robot_availability:92,complaint_response:80,manual_assessment:82}},
+    {area_id:'tower-c_3f', name:'Tower C 3rd Floor',
+     metrics:{cleanliness:75,tenant_satisfaction:78,staff_attendance:100,robot_availability:87,complaint_response:70,manual_assessment:76}},
+    {area_id:'tower-c_parking', name:'Tower C Parking',
+     metrics:{cleanliness:90,tenant_satisfaction:92,staff_attendance:100,robot_availability:0,complaint_response:95,manual_assessment:88}},
+  ];
+  const results = [];
+  for (const a of areas) {
+    try {
+      const snap = await api('/health/calculate', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({building_id:'tower-c', area_id:a.area_id, metrics:a.metrics}),
+      });
+      results.push({...a, score: snap.overall_score});
+    } catch (e) { results.push({...a, score: 0}); }
+  }
+
+  // Show area health
+  const el = document.getElementById('area-health');
+  el.innerHTML = results.map(r => `
+    <div class="list-item">
+      <div class="icon ${scoreClass(r.score)}" style="color:#fff;font-size:16px;font-weight:700;">
+        ${r.score.toFixed(0)}
+      </div>
+      <div class="content">
+        <div class="name">${r.name}</div>
+        <div class="desc">SHI: ${r.score.toFixed(1)} / 100</div>
+      </div>
+      <span class="badge ${r.score >= 80 ? 'badge-active' : r.score >= 60 ? 'badge-pending' : 'badge-danger'}">
+        ${r.score >= 80 ? 'Good' : r.score >= 60 ? 'Fair' : 'Poor'}
+      </span>
+    </div>
+  `).join('');
+
+  // Building average
+  const avg = results.reduce((s,r) => s + r.score, 0) / results.length;
+  document.getElementById('shi-val').textContent = avg.toFixed(0);
+  document.getElementById('shi-circle').className = `score-circle ${scoreClass(avg)}`;
+  document.getElementById('shi-desc').textContent =
+    `Average across ${results.length} areas · Updated just now`;
+}
+
+async function submitAssessment() {
+  const body = {
+    area_id: document.getElementById('assess-area').value,
+    assessor_id: 'tc-005',
+    assessor_role: 'manager',
+    score: parseInt(document.getElementById('assess-score').value),
+    notes: document.getElementById('assess-notes').value,
+  };
+  try {
+    await api('/health/assessment', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(body),
+    });
+    toast('Assessment submitted!');
+    loadHealth();
+  } catch (e) { toast('Failed: ' + e.message); }
+}
+
+loadHealth();
+</script>
+{% endblock %}

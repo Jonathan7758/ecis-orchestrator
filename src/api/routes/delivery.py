@@ -85,7 +85,7 @@ async def get_delivery_status(workflow_id: str) -> Dict[str, Any]:
         handle = client.get_workflow_handle(workflow_id)
         status = await handle.query("get_status")
         return status
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=404, detail=f"Delivery not found: {workflow_id}")
 
 
@@ -101,7 +101,7 @@ async def confirm_pickup(workflow_id: str) -> Dict[str, str]:
         handle = client.get_workflow_handle(workflow_id)
         await handle.signal(DeliveryWorkflow.confirm_pickup)
         return {"status": "confirmed", "message": "Pickup confirmed"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=404, detail=f"Delivery not found: {workflow_id}")
 
 
@@ -117,7 +117,7 @@ async def confirm_delivery(workflow_id: str, signature: Optional[str] = None) ->
         handle = client.get_workflow_handle(workflow_id)
         await handle.signal(DeliveryWorkflow.confirm_delivery, args=[signature])
         return {"status": "confirmed", "message": "Delivery confirmed"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=404, detail=f"Delivery not found: {workflow_id}")
 
 
@@ -133,5 +133,5 @@ async def cancel_delivery(workflow_id: str, reason: str = "User cancelled") -> D
         handle = client.get_workflow_handle(workflow_id)
         await handle.signal(DeliveryWorkflow.cancel_delivery, args=[reason])
         return {"status": "cancelled", "message": f"Delivery cancelled: {reason}"}
-    except Exception as e:
+    except Exception:
         raise HTTPException(status_code=404, detail=f"Delivery not found: {workflow_id}")

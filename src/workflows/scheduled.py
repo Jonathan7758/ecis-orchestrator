@@ -174,7 +174,7 @@ class ScheduledCleaningWorkflow:
                         start_to_close_timeout=timedelta(seconds=10),
                     )
 
-                except Exception as e:
+                except Exception:
                     self._failed_locations.append(location)
 
             # 释放机器人
@@ -222,7 +222,7 @@ class ScheduledCleaningWorkflow:
                         args=[self._robot_id],
                         start_to_close_timeout=timedelta(seconds=30),
                     )
-                except:
+                except Exception:
                     pass
 
             return ScheduledTaskResult(
@@ -406,7 +406,7 @@ class ScheduledPatrolWorkflow:
                         args=[self._robot_id],
                         start_to_close_timeout=timedelta(seconds=30),
                     )
-                except:
+                except Exception:
                     pass
 
             return ScheduledTaskResult(

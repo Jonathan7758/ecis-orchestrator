@@ -66,7 +66,7 @@ async def register_agent(request: AgentRegisterRequest) -> Dict[str, str]:
     注册 Agent
     """
     dispatcher = get_task_dispatcher()
-    
+
     agent = AgentInfo(
         agent_id=request.agent_id,
         agent_type=request.agent_type,
@@ -75,7 +75,7 @@ async def register_agent(request: AgentRegisterRequest) -> Dict[str, str]:
         max_load=request.max_load,
         metadata=request.metadata or {},
     )
-    
+
     dispatcher.register_agent(agent)
     return {"status": "registered", "agent_id": request.agent_id}
 
@@ -96,10 +96,10 @@ async def update_agent_status(agent_id: str, status: str) -> Dict[str, str]:
     更新 Agent 状态
     """
     dispatcher = get_task_dispatcher()
-    
+
     if agent_id not in dispatcher._agents:
         raise HTTPException(status_code=404, detail=f"Agent not found: {agent_id}")
-    
+
     dispatcher.update_agent_status(agent_id, status)
     return {"status": "updated", "agent_id": agent_id, "new_status": status}
 
@@ -114,7 +114,7 @@ async def find_available_agents(
     """
     dispatcher = get_task_dispatcher()
     available = dispatcher.find_available_agents(capability, agent_type)
-    
+
     return [
         {
             "agent_id": agent.agent_id,
@@ -133,7 +133,7 @@ async def dispatch_task(request: DispatchTaskRequest) -> TaskResponse:
     分派任务
     """
     dispatcher = get_task_dispatcher()
-    
+
     try:
         assignment = await dispatcher.dispatch_task(
             capability=request.capability,
@@ -158,10 +158,10 @@ async def get_task(task_id: str) -> Dict[str, Any]:
     """
     dispatcher = get_task_dispatcher()
     assignment = dispatcher.get_assignment(task_id)
-    
+
     if not assignment:
         raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
-    
+
     return {
         "task_id": assignment.task_id,
         "agent_id": assignment.agent_id,
@@ -178,10 +178,10 @@ async def complete_task(task_id: str, success: bool = True) -> Dict[str, str]:
     完成任务
     """
     dispatcher = get_task_dispatcher()
-    
+
     if not dispatcher.get_assignment(task_id):
         raise HTTPException(status_code=404, detail=f"Task not found: {task_id}")
-    
+
     dispatcher.complete_task(task_id, success)
     return {
         "status": "completed" if success else "failed",

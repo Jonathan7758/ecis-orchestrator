@@ -325,7 +325,7 @@ class DeliveryWorkflow:
                         args=[self._robot_id],
                         start_to_close_timeout=timedelta(seconds=30),
                     )
-                except:
+                except Exception:
                     pass
 
             return DeliveryWorkflowResult(

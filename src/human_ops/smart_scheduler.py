@@ -308,7 +308,7 @@ class SmartScheduler:
         available_staff = await self._staff.get_available_staff(
             building_id=plan.building_id, target_date=dt,
         )
-        available_ids = {s.staff_id for s in available_staff}
+        _available_ids = {s.staff_id for s in available_staff}
 
         # Find least-loaded among currently assigned staff who are available
         best_candidate: Optional[StaffProfile] = None

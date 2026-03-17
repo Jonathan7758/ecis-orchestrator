@@ -177,7 +177,7 @@ class WorkflowService:
                 close_time=desc.close_time,
                 execution_time=desc.execution_time.isoformat() if desc.execution_time else None,
             )
-        except Exception as e:
+        except Exception:
             raise WorkflowNotFoundError(workflow_id)
 
     async def query_workflow(self, workflow_id: str, query_name: str = "get_status") -> Dict[str, Any]:
@@ -195,7 +195,7 @@ class WorkflowService:
             handle = self._client.get_workflow_handle(workflow_id)
             result = await handle.query(query_name)
             return result
-        except Exception as e:
+        except Exception:
             raise WorkflowNotFoundError(workflow_id)
 
     async def get_workflow_result(self, workflow_id: str) -> Any:
@@ -211,7 +211,7 @@ class WorkflowService:
         try:
             handle = self._client.get_workflow_handle(workflow_id)
             return await handle.result()
-        except Exception as e:
+        except Exception:
             raise WorkflowNotFoundError(workflow_id)
 
     async def cancel_workflow(self, workflow_id: str) -> bool:
@@ -228,7 +228,7 @@ class WorkflowService:
             handle = self._client.get_workflow_handle(workflow_id)
             await handle.cancel()
             return True
-        except Exception as e:
+        except Exception:
             raise WorkflowNotFoundError(workflow_id)
 
     async def signal_workflow(
@@ -263,7 +263,7 @@ class WorkflowService:
                 await handle.signal(signal_name, *args)
 
             return True
-        except Exception as e:
+        except Exception:
             raise WorkflowNotFoundError(workflow_id)
 
     async def list_workflows(

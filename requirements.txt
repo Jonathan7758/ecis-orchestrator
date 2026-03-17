@@ -1,0 +1,35 @@
+# Core
+fastapi>=0.104.0
+uvicorn>=0.24.0
+httpx>=0.25.0
+
+# Data
+asyncpg>=0.29.0
+redis>=5.0.0
+aioredis>=2.0.0
+
+# Protocols
+ecis-protocols>=1.3.0
+
+# AI
+anthropic>=0.42.0
+
+# Templates
+jinja2>=3.1.0
+
+# WeChat / Notifications
+aiohttp>=3.9.0
+aiosmtplib>=3.0.0
+
+# Testing
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+pytest-cov>=4.1.0
+playwright>=1.40.0
+pytest-playwright>=0.4.0
+
+# Dev tools
+ruff>=0.3.0
+
+# Temporal (V7 workflows)
+temporalio>=1.4.0

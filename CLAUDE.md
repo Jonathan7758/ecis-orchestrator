@@ -1,6 +1,8 @@
-# ECIS Orchestrator - Claude 开发指南
+# ECIS 平台 — Claude Code 开发指南 v3
 
-> 此文件由 Claude Code 自动读取，作为项目上下文。
+> 版本: 3.0 | 日期: 2026-02-24
+> 基于: ECIS架构v6（七层架构 + 知识层）
+> 适用仓库: ecis-service-robot, ecis-orchestrator, ecis-federation, ecis-protocols
 
 ---
 
@@ -8,214 +10,380 @@
 
 | 项目 | 值 |
 |------|-----|
-| **当前阶段** | Task 7 - 编排器后端 |
-| **当前模块** | Week 1 基础设施 ✅ |
-| **进度** | 100% (所有核心模块完成) |
-| **阻塞问题** | 无 |
-| **最后更新** | 2026-01-27 |
-
-### 当前任务上下文
-
-```
-已完成内容:
-  - 项目结构创建
-  - pyproject.toml 依赖配置
-  - docker-compose.yaml (Temporal, PostgreSQL, Redis)
-  - core 模块 (config, exceptions, database)
-  - activities 模块 (robot, facility, notification, llm) - 23个Activity
-  - workflows 模块 (cleaning, approval, delivery, scheduled) - 6个Workflow
-  - workers 模块 (main_worker)
-  - api 模块 (routes/workflows, approvals, delivery, tasks)
-  - services 模块 (workflow_service, task_dispatcher)
-  - federation 模块 (federation_client)
-  - models 模块 (workflow, agent)
-  - Docker 环境启动成功 (Temporal, PostgreSQL, Redis)
-  - 52 个单元测试全部通过
-  - 2 个端到端测试通过 (需要Docker环境运行)
-
-Git 提交:
-  - 7a122f4 feat(orchestrator): initial project setup with Temporal workflows
-  - 917939a feat(orchestrator): add e2e tests and fix port conflicts
-  - 13e629f feat(orchestrator): add services, federation, and models modules
-  - 14576c7 feat(orchestrator): add delivery and scheduled workflows with API routes
-
-待完成:
-  - 集成测试完善
-  - 部署文档
-```
+| **当前阶段** | 阶段一优化迭代（88%→95%+） |
+| **MVP状态** | ✅ 已完成（511测试通过） |
+| **当前目标** | Tower C生产部署（20机器人/10用户） |
+| **迭代内容** | A类补缺口 + B类前瞻性设计 + C类接口预留 |
+| **开发者数量** | 2人（5周开发周期） |
+| **最后更新** | 2026-03-03 |
 
 ---
 
 ## 项目概述
 
-| 项目 | 值 |
-|------|-----|
-| 项目名称 | ecis-orchestrator |
-| 项目路径 | `/root/projects/ecis/ecis-orchestrator` |
-| 后端端口 | 8200 |
-| Temporal 端口 | 7233 (gRPC), 8233 (Web UI) |
-| PostgreSQL 端口 | 5434 |
-| Redis 端口 | 6380 |
+ECIS（企业群体智能系统）编排平台，实现人机协同的物业管理智能化。
 
-## 技术栈
+### 技术栈
 
-| 组件 | 技术 | 说明 |
-|------|------|------|
-| 语言 | Python 3.11+ | 后端开发 |
-| 工作流引擎 | Temporal | 核心编排 |
-| Web 框架 | FastAPI | API 服务 |
-| 数据库 | PostgreSQL | 业务数据 |
-| 缓存 | Redis | 状态缓存 |
-| LLM | Claude API | 智能决策 |
+```
+后端: Python 3.11+ / FastAPI / Temporal / Claude API
+前端: React 18 / TypeScript / TailwindCSS 3.4 / React Flow
+数据: PostgreSQL 15+ / Redis 7+ / TimescaleDB（决策日志）
+部署: Docker Compose（阶段一）→ K8s（阶段二）
+监控: Prometheus / Grafana / Loki
+```
 
----
+### 仓库清单
 
-## 模块状态
-
-| 模块 | 状态 | 说明 |
-|------|------|------|
-| core/ | ✅ 已完成 | 配置、数据库、异常 |
-| activities/ | ✅ 已完成 | robot(6), facility(7), notification(6), llm(4) = 23个 |
-| workflows/ | ✅ 已完成 | cleaning, approval, delivery, scheduled = 6个 |
-| workers/ | ✅ 已完成 | main_worker |
-| api/ | ✅ 已完成 | routes/workflows, approvals, delivery, tasks |
-| services/ | ✅ 已完成 | workflow_service, task_dispatcher |
-| federation/ | ✅ 已完成 | federation_client |
-| models/ | ✅ 已完成 | workflow, agent |
-| tests/ | ✅ 已完成 | 52单元测试 + 2端到端测试 |
-
-状态图例：⬜ 待开发 | 🔄 开发中 | ✅ 已完成 | ⚠️ 需修复
+| 仓库 | 说明 | 开发端口 |
+|------|------|---------|
+| ecis-protocols | 共享协议和数据模型 | — |
+| ecis-service-robot | 服务机器人子系统（MVP已完成） | 8100 |
+| ecis-orchestrator | 统一编排平台 | 8300(API), 3000(前端) |
+| ecis-federation | 联邦网关 | 8200 |
+| ecis-human-agent | 人员管理 | 8400 |
+| ecis-property-facility | 设施管理 | 8500 |
 
 ---
 
-## 工作流列表
+## 七层架构速查
 
-| 工作流 | 说明 | 信号 |
-|--------|------|------|
-| RobotCleaningWorkflow | 机器人清洁任务 | - |
-| ApprovalWorkflow | 单级审批 | approve, reject, cancel |
-| MultiStageApprovalWorkflow | 多级审批 | approve, reject |
-| DeliveryWorkflow | 物品配送 | confirm_pickup, confirm_delivery, cancel_delivery |
-| ScheduledCleaningWorkflow | 定时清洁 | cancel_schedule, skip_location |
-| ScheduledPatrolWorkflow | 定时巡检 | cancel_patrol, report_anomaly |
+```
+L5 前端层    → T1-T4, O1-O4, E1-E3, P1-P3（三端+移动端）
+L4 API网关   → G1-G7(原有) + G8知识API + G9规则API + WebSocket/SSE端点
+L3 Agent层   → A1运行时 + A2清洁调度 + A3对话 + A4采集 + A5决策校验(新)
+L2.5 知识层  → K1场景知识库 + K2治理规则库 + K3决策日志库（新增层）
+L2 数据平台  → D1采集引擎(增强) + D2存储(增强) + D3查询API
+L1 MCP服务   → M1空间 + M2任务 + M3高仙(增强) + M4科沃斯(增强)
+L0 基础设施  → F1数据模型(扩展) + F2工具 + F3配置(扩展) + F4认证 + F5事件总线抽象(新)
+```
 
 ---
 
-## API 端点
+## 当前迭代模块清单
 
-### Workflows
-- POST /api/v1/workflows/cleaning - 启动清洁工作流
-- GET /api/v1/workflows/{id} - 获取工作流状态
-- POST /api/v1/workflows/{id}/cancel - 取消工作流
+### P0 优先级（Tower C上线前必须完成）
 
-### Approvals
-- POST /api/v1/approvals - 创建审批
-- GET /api/v1/approvals/{id} - 获取审批状态
-- POST /api/v1/approvals/{id}/approve - 批准
-- POST /api/v1/approvals/{id}/reject - 拒绝
+| 编号 | 模块 | 工程量 | 影响仓库 | 状态 |
+|------|------|--------|---------|------|
+| A1 | 实时事件通道（WebSocket） | 3-4天 | ecis-service-robot | ✅ 已完成 |
+| A2 | LLM决策校验层 | 2-3天 | ecis-service-robot | ✅ 已完成 |
+| A3 | 场景知识库K1 | 3-4天 | ecis-service-robot, ecis-protocols | ⬜ 待开发 |
+| B1 | 决策上下文日志K3 | 2-3天 | ecis-service-robot, ecis-protocols | ⬜ 待开发 |
 
-### Delivery
-- POST /api/v1/delivery - 启动配送
-- GET /api/v1/delivery/{id} - 获取配送状态
-- POST /api/v1/delivery/{id}/confirm-pickup - 确认取货
-- POST /api/v1/delivery/{id}/confirm-delivery - 确认送达
-- POST /api/v1/delivery/{id}/cancel - 取消配送
+### P1 优先级（Tower C运营首月内完成）
 
-### Tasks
-- GET /api/v1/tasks/agents - 列出所有Agent
-- POST /api/v1/tasks/agents - 注册Agent
-- POST /api/v1/tasks/dispatch - 分派任务
-- GET /api/v1/tasks/{id} - 获取任务状态
-- GET /api/v1/tasks/stats/overview - 统计信息
+| 编号 | 模块 | 工程量 | 影响仓库 | 状态 |
+|------|------|--------|---------|------|
+| A4 | 移动端弱网离线支持 | 3-4天 | ecis-service-robot | ⬜ 待开发 |
+| B2 | 事件Schema扩展 | 1天 | ecis-protocols | ⬜ 待开发 |
+| B4 | 治理规则框架K2 | 2-3天 | ecis-service-robot, ecis-protocols | ⬜ 待开发 |
+| B5 | Human Agent决策边界 | 1-2天 | ecis-human-agent | ⬜ 待开发 |
+| C3 | 事件总线抽象层F5 | 1天 | ecis-federation | ⬜ 待开发 |
+
+### P2 优先级（Tower C运营稳定后）
+
+| 编号 | 模块 | 工程量 | 影响仓库 | 状态 |
+|------|------|--------|---------|------|
+| B3 | 能力模型A2A兼容 | 0.5天 | ecis-protocols | ⬜ 待开发 |
+| C1 | 对话式入口预留 | 0.5天 | ecis-orchestrator | ⬜ 待开发 |
+| C2 | 联邦客户端预留 | 0.5天 | 各子系统 | ⬜ 待开发 |
+
+---
+
+## 开发规范
+
+### 目录结构约定
+
+```
+ecis-{subsystem}/
+├── CLAUDE.md                # 本文件（每个仓库一份）
+├── README.md
+├── docker-compose.yml
+├── pyproject.toml
+├── src/
+│   ├── __init__.py
+│   ├── agents/              # L3: Agent实现
+│   ├── adapters/            # L1: 外部API适配器
+│   ├── knowledge/           # L2.5: 知识层客户端（新增）
+│   ├── validation/          # L3: 决策校验（新增）
+│   ├── services/            # 业务服务
+│   ├── api/                 # L4: FastAPI路由
+│   ├── models/              # L0: 数据模型
+│   ├── event_bus/           # L0: 事件总线
+│   └── config/              # L0: 配置管理
+├── tests/
+│   ├── unit/                # 单元测试
+│   ├── integration/         # 集成测试
+│   └── e2e/                 # 端到端测试
+├── migrations/              # 数据库迁移
+└── docs/                    # 模块文档
+```
+
+### 代码规范
+
+```python
+# 1. 所有模型使用Pydantic v2
+from pydantic import BaseModel, Field
+
+# 2. 异步优先
+async def create_task(task: TaskCreate) -> Task: ...
+
+# 3. Protocol定义接口（非ABC）
+from typing import Protocol
+class DecisionValidatorInterface(Protocol):
+    async def validate(self, decision: dict, context: DecisionContext) -> ValidationResult: ...
+
+# 4. 依赖注入
+from fastapi import Depends
+def get_knowledge_client() -> ScenarioKBClient:
+    return ScenarioKBClient(settings.knowledge_db_url)
+
+# 5. 结构化日志
+import structlog
+logger = structlog.get_logger()
+logger.info("decision_validated", agent_id=agent_id, valid=result.valid)
+```
+
+### 测试规范
+
+```python
+# 1. 命名: test_{模块}_{场景}_{预期结果}
+def test_decision_validator_invalid_robot_id_returns_error(): ...
+
+# 2. 使用pytest + pytest-asyncio
+@pytest.mark.asyncio
+async def test_realtime_client_reconnect_on_disconnect(): ...
+
+# 3. Fixture层级: conftest.py按目录组织
+# tests/conftest.py          → 全局fixture（db, redis）
+# tests/unit/conftest.py     → 单元测试fixture（mock clients）
+# tests/integration/conftest.py → 集成测试fixture（真实服务）
+
+# 4. 覆盖率目标: ≥80%，核心路径100%
+```
 
 ---
 
 ## 常用命令
 
 ```bash
-# 激活虚拟环境
-cd /root/projects/ecis/ecis-orchestrator
-source venv/bin/activate
+# 环境启动
+docker-compose up -d                       # 启动所有依赖服务
+uvicorn src.api.main:app --reload --port 8100  # 启动API
 
-# 启动开发环境
-docker compose up -d
+# 测试
+pytest tests/unit/ -v                      # 单元测试
+pytest tests/integration/ -v               # 集成测试
+pytest tests/ -v --cov=src --cov-report=term-missing  # 带覆盖率
 
-# 启动 Temporal Worker
-python -m src.workers.main_worker
+# 数据库
+alembic upgrade head                       # 执行迁移
+alembic revision --autogenerate -m "desc"  # 生成迁移
 
-# 启动 API 服务
-uvicorn src.api.main:app --reload --port 8200
-
-# 运行单元测试
-pytest tests/ -v --ignore=tests/test_e2e.py
-
-# 运行端到端测试（需要先启动Worker）
-python tests/test_e2e.py
-
-# 访问 Temporal Web UI
-open http://localhost:8233
+# 代码质量
+ruff check src/                            # lint
+ruff format src/                           # format
+mypy src/                                  # 类型检查
 ```
 
 ---
 
-## 文件清单
+## 关键接口速查
+
+### 数据模型（ecis-protocols）
+
+```python
+# 核心模型位置: ecis-protocols/src/models/
+
+# 决策相关（v1.3新增）
+DecisionContext      # 决策输入上下文
+DecisionOutcome      # 决策效果记录  
+DecisionRecord       # Context + Decision + Outcome 三元组
+
+# 知识层相关（v1.3新增）
+ScenarioKnowledge    # 场景知识条目
+PromptTemplate       # Prompt模板
+GovernanceRule       # 治理规则
+
+# 事件扩展（v1.3新增）
+EventV2              # 增加 source_node_id, causal_chain 等跨节点字段
+
+# 自主性标记（v1.3新增）
+AutonomyLevel        # L0-L4 自主性层级
+TaskAutonomyConfig   # 任务自主性配置
+```
+
+### MCP Server接口
+
+```python
+# M3/M4 新增实时通道
+RobotMCPRealtimeInterface:
+  connect_realtime(robot_id) -> WebSocketConnection
+  subscribe_events(robot_id, event_types) -> Subscription
+
+# 原有接口保持不变
+RobotMCPInterface:
+  get_robot_status(robot_id) -> RobotStatus
+  send_task(robot_id, task) -> TaskResult
+  list_robots() -> List[Robot]
+```
+
+### 决策管道接口
+
+```python
+# A5 DecisionValidator
+DecisionValidatorInterface:
+  validate(decision, context) -> ValidationResult
+
+# K1 场景知识库
+ScenarioKBInterface:
+  get_applicable_knowledge(scenario_category, conditions) -> List[ScenarioKnowledge]
+  get_prompt_template(agent_type, scenario) -> PromptTemplate
+  record_knowledge_usage(knowledge_id, decision_id) -> None
+
+# K2 治理规则库  
+GovernanceRuleInterface:
+  get_active_rules(scope, context) -> List[GovernanceRule]
+  evaluate_rules(rules, decision) -> RuleEvaluationResult
+
+# K3 决策日志
+DecisionLogInterface:
+  log_decision(record: DecisionRecord) -> str
+  update_outcome(decision_id, outcome: DecisionOutcome) -> None
+  query_decisions(filters) -> List[DecisionRecord]
+```
+
+---
+
+## 模块开发会话模式
+
+每个Claude Code会话应专注于单个模块。推荐会话流程：
+
+### 会话开始
 
 ```
-ecis-orchestrator/
-├── pyproject.toml
-├── docker-compose.yaml
-├── init-db.sql
-├── temporal-config/
-│   └── development.yaml
-├── src/
-│   ├── __init__.py
-│   ├── core/
-│   │   ├── __init__.py
-│   │   ├── config.py         ✅
-│   │   ├── database.py       ✅
-│   │   └── exceptions.py     ✅
-│   ├── activities/
-│   │   ├── __init__.py
-│   │   ├── robot.py          ✅ (6 activities)
-│   │   ├── facility.py       ✅ (7 activities)
-│   │   ├── notification.py   ✅ (6 activities)
-│   │   └── llm.py            ✅ (4 activities)
-│   ├── workflows/
-│   │   ├── __init__.py
-│   │   ├── cleaning.py       ✅ (RobotCleaningWorkflow)
-│   │   ├── approval.py       ✅ (ApprovalWorkflow, MultiStageApprovalWorkflow)
-│   │   ├── delivery.py       ✅ (DeliveryWorkflow)
-│   │   └── scheduled.py      ✅ (ScheduledCleaningWorkflow, ScheduledPatrolWorkflow)
-│   ├── workers/
-│   │   ├── __init__.py
-│   │   └── main_worker.py    ✅
-│   ├── api/
-│   │   ├── __init__.py
-│   │   ├── main.py           ✅
-│   │   └── routes/
-│   │       ├── __init__.py
-│   │       ├── workflows.py  ✅
-│   │       ├── approvals.py  ✅
-│   │       ├── delivery.py   ✅
-│   │       └── tasks.py      ✅
-│   ├── services/
-│   │   ├── __init__.py       ✅
-│   │   ├── workflow_service.py ✅
-│   │   └── task_dispatcher.py  ✅
-│   ├── federation/
-│   │   ├── __init__.py       ✅
-│   │   └── federation_client.py ✅
-│   └── models/
-│       ├── __init__.py       ✅
-│       ├── base.py           ✅
-│       ├── workflow.py       ✅
-│       └── agent.py          ✅
-└── tests/
-    ├── __init__.py
-    ├── test_core.py          ✅ (11 tests)
-    ├── test_activities_unit.py ✅ (13 tests)
-    ├── test_services.py      ✅ (10 tests)
-    ├── test_models.py        ✅ (11 tests)
-    ├── test_federation.py    ✅ (7 tests)
-    └── test_e2e.py           ✅ (2 e2e tests)
+1. 阅读本CLAUDE.md了解全局上下文
+2. 阅读目标模块的规格书（docs/目录下对应文件）
+3. 检查依赖模块的接口定义（ecis-protocols）
+4. 确认当前模块状态（上表中的状态列）
 ```
+
+### 开发流程
+
+```
+1. 先写接口定义（Protocol类）
+2. 写测试（pytest，先写失败用例）
+3. 实现功能代码
+4. 运行测试确认通过
+5. 更新本CLAUDE.md中的模块状态
+```
+
+### 会话结束
+
+```
+1. 确认所有测试通过
+2. 更新CLAUDE.md模块状态（⬜→🔧→✅）
+3. 记录关键决策到 docs/DECISIONS.md
+4. 如有遗留问题记录到 docs/TODO.md
+```
+
+---
+
+## 依赖关系图（开发顺序）
+
+```
+ecis-protocols（先行）
+  ├── F1数据模型扩展 ← 所有模块依赖
+  ├── B2事件Schema扩展
+  └── B3能力模型扩展
+
+ecis-service-robot（核心）
+  ├── A1实时事件通道 ← 依赖M3/M4适配器改造
+  ├── A2决策校验层   ← 依赖F1数据模型
+  ├── A3场景知识库K1 ← 依赖F1数据模型
+  ├── B1决策日志K3   ← 依赖F1数据模型 + A2
+  ├── B4治理规则K2   ← 依赖F1数据模型
+  └── A4弱网离线     ← 独立（前端改造）
+
+ecis-federation
+  └── C3事件总线抽象 ← 独立
+
+ecis-human-agent
+  └── B5决策边界     ← 依赖F1数据模型
+```
+
+**推荐开发顺序**:
+
+```
+Sprint 1 (Week 1-2): ecis-protocols扩展 → A1实时通道 → A2决策校验
+Sprint 2 (Week 2-3): A3场景知识库 → B1决策日志 → B4治理规则
+Sprint 3 (Week 3-4): A4弱网离线 → C3事件总线 → B5决策边界
+Sprint 4 (Week 4-5): 集成测试 → 性能优化 → Tower C部署
+```
+
+---
+
+## 环境配置
+
+### 开发环境（远程云服务器）
+
+```yaml
+# docker-compose.dev.yml
+services:
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    ports: ["5432:5432"]
+    environment:
+      POSTGRES_DB: ecis_dev
+      POSTGRES_PASSWORD: dev_password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    ports: ["7233:7233", "8233:8233"]
+    depends_on: [postgres]
+
+# 环境变量
+# .env.development
+DATABASE_URL=postgresql://postgres:dev_password@localhost:5432/ecis_dev
+REDIS_URL=redis://localhost:6379
+TEMPORAL_HOST=localhost:7233
+CLAUDE_API_KEY=sk-ant-xxx
+LOG_LEVEL=DEBUG
+```
+
+### 远程开发连接
+
+```bash
+# 本地电脑通过SSH连接云端服务器
+ssh -L 8100:localhost:8100 -L 3000:localhost:3000 -L 8233:localhost:8233 user@cloud-server
+
+# Claude Code在云端服务器上运行
+# 本地浏览器访问:
+#   http://localhost:8100/docs    → API文档
+#   http://localhost:3000         → 前端
+#   http://localhost:8233         → Temporal Web UI
+```
+
+---
+
+## 故障排查
+
+| 问题 | 排查步骤 |
+|------|---------|
+| MCP Server连接失败 | 检查机器人API VPN连接 → 检查M3/M4适配器日志 |
+| LLM决策异常 | 查看K3决策日志 → 检查A5校验结果 → 检查K1知识库 |
+| 实时推送延迟 | 检查WebSocket连接状态 → 检查Redis Streams积压 |
+| 移动端离线同步失败 | 检查IndexedDB → 检查SyncManager日志 → 检查P3通知队列 |
+| Temporal工作流卡住 | Temporal Web UI查看 → 检查Worker日志 → 检查Activity超时 |
+
+---
+
+*最后更新: 2026-02-24*
+*下次更新: 每个Sprint结束时更新模块状态*

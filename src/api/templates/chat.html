@@ -67,7 +67,7 @@ function addMessage(role, content) {
         ${isUser?'V':'AI'}
       </div>
       <div style="background:${isUser?'#dbeafe':'#fff'};border-radius:12px;padding:12px;max-width:80%;box-shadow:0 1px 3px rgba(0,0,0,0.06);">
-        <div style="font-size:14px;line-height:1.5;">${content}</div>
+        <div style="font-size:14px;line-height:1.5;">${escapeHtml(content)}</div>
       </div>
     </div>
   `;

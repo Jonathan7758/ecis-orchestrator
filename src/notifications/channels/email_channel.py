@@ -21,6 +21,8 @@ from notifications.multi_channel import (
     RecipientInfo,
 )
 
+from notifications.masking import mask_email
+
 logger = logging.getLogger("ecis.notifications.email")
 
 

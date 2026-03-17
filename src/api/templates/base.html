@@ -176,6 +176,15 @@
 <div id="toast" class="toast"></div>
 <script>
 const API = '';
+// XSS protection: escape HTML entities in user-facing data
+function escapeHtml(str) {
+  if (str === null || str === undefined) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
 async function api(path, opts) {
   const res = await fetch(API + path, opts);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);

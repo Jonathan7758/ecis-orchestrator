@@ -140,7 +140,7 @@ async function loadHealth() {
         ${r.score.toFixed(0)}
       </div>
       <div class="content">
-        <div class="name">${r.name}</div>
+        <div class="name">${escapeHtml(r.name)}</div>
         <div class="desc">SHI: ${r.score.toFixed(1)} / 100</div>
       </div>
       <span class="badge ${r.score >= 80 ? 'badge-active' : r.score >= 60 ? 'badge-pending' : 'badge-danger'}">

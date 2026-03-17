@@ -136,7 +136,7 @@ async function loadOrders() {
             ${o.priority==='critical'?'🔴':o.priority==='high'?'🟠':'📋'}
           </div>
           <div class="content">
-            <div class="name">${o.title}</div>
+            <div class="name">${escapeHtml(o.title)}</div>
             <div class="desc">${o.order_type} · ${o.priority} · ${o.assigned_to ? 'Assigned: '+o.assigned_to : 'Unassigned'}</div>
             <div class="desc">${o.description || ''}</div>
             ${o.status === 'open' ? `<button class="btn btn-primary" style="padding:4px 12px;font-size:12px;margin-top:6px;" onclick="assignOrder('${o.order_id}')">Assign</button>` : ''}

@@ -123,7 +123,7 @@ function renderResult(r) {
       <div class="icon" style="background:#fee2e2;">🚨</div>
       <div class="content">
         <div class="name">Dispatch #${r.dispatch_id.substring(0,8)}</div>
-        <div class="desc">Assigned to: ${r.assigned_name || 'Pending'}</div>
+        <div class="desc">Assigned to: ${escapeHtml(r.assigned_name) || 'Pending'}</div>
         <div class="desc">Autonomy: L${r.autonomy_level} · ETA: ${r.estimated_response_minutes}min</div>
       </div>
       <span class="badge ${badgeClass(r.status)}">${r.status}</span>
@@ -175,7 +175,7 @@ async function loadPending() {
           <div class="content">
             <div class="name">${r.event?.event_type || 'Exception'} — ${r.event?.zone_id || ''}</div>
             <div class="desc">${r.event?.description || ''}</div>
-            <div class="desc">Assigned: ${r.result?.assigned_name || 'N/A'}</div>
+            <div class="desc">Assigned: ${escapeHtml(r.result?.assigned_name) || 'N/A'}</div>
           </div>
           <span class="badge ${badgeClass(r.result?.status || 'pending')}">${r.result?.status || '?'}</span>
         </div>

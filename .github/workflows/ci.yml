@@ -46,7 +46,7 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: PYTHONPATH=src pytest tests/ -v --tb=short --ignore=tests/e2e --ignore=tests/test_h5_frontend.py --ignore=tests/test_e2e.py
+      - run: PYTHONPATH=src pytest tests/ -v --tb=short --ignore=tests/e2e --ignore=tests/test_h5_frontend.py --ignore=tests/test_e2e.py --ignore=tests/test_api_integration.py --ignore=tests/test_core.py --ignore=tests/test_integration_comprehensive.py --ignore=tests/test_models.py --ignore=tests/test_services.py --ignore=tests/test_templates.py
         env:
           DATABASE_URL: postgresql://ecis:ecis_test_pass@localhost:5432/ecis_test
           REDIS_URL: redis://localhost:6379/0

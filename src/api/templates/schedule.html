@@ -103,7 +103,7 @@ function renderSchedule(plan) {
       <div class="list-item">
         <div class="icon" style="background:#dbeafe;">👤</div>
         <div class="content">
-          <div class="name">${a.staff_name}</div>
+          <div class="name">${escapeHtml(a.staff_name)}</div>
           <div class="desc">${a.zone_name} · ${a.shift} · ${a.task_type}</div>
           <div class="desc">${a.start_time} → ${a.end_time}${a.paired_robot_id ? ' 🤖 '+a.paired_robot_id : ''}</div>
         </div>
@@ -121,7 +121,7 @@ function renderSchedule(plan) {
       <div class="list-item">
         <div class="icon" style="background:#fef3c7;">🤖</div>
         <div class="content">
-          <div class="name">${r.robot_id}</div>
+          <div class="name">${escapeHtml(r.robot_id)}</div>
           <div class="desc">${r.zone_id} · ${r.task_type} · Battery: ${r.battery_level}%</div>
         </div>
         <span class="badge badge-info">${r.shift}</span>

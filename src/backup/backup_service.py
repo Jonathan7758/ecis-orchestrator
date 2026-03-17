@@ -37,7 +37,7 @@ class BackupConfig:
     pg_port: int = 5432
     pg_database: str = "ecis"
     pg_user: str = "ecis"
-    pg_password: str = ""
+    pg_password: str = field(default="", repr=False)
     backup_dir: str = "/var/backups/ecis"
     retention_days: int = 90
     max_backups: int = 100

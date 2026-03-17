@@ -41,7 +41,7 @@ logger = logging.getLogger("ecis.notifications")
 class SMSConfig:
     """SMS channel configuration."""
     provider: str = "mock"           # mock / twilio / alibaba_cloud
-    api_key: str = ""
+    api_key: str = field(default="", repr=False)
     sender_id: str = "ECIS"
 
     def __post_init__(self):
@@ -55,7 +55,7 @@ class EmailConfig:
     smtp_host: str = "localhost"
     smtp_port: int = 587
     username: str = ""
-    password: str = ""
+    password: str = field(default="", repr=False)
     from_address: str = "ecis@linkc.hk"
 
 

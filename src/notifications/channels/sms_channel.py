@@ -21,6 +21,8 @@ from notifications.multi_channel import (
     SMSConfig,
 )
 
+from notifications.masking import mask_phone
+
 logger = logging.getLogger("ecis.notifications.sms")
 
 
@@ -129,7 +131,8 @@ class SMSChannel:
         In production, this would call Twilio/Alibaba Cloud SDK.
         """
         logger.warning(
-            "SMS provider %s not implemented, returning False",
+            "SMS provider %s not implemented, returning False (phone: %s)",
             self._config.provider,
+            mask_phone(phone),
         )
         return False
